@@ -70,6 +70,7 @@ func NewRootCmd() *cobra.Command {
 	})
 
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newInitCmd(flags))
 	root.AddCommand(newStatusCmd(flags))
 	root.AddCommand(newExplainCmd(flags))
 	root.AddCommand(newApplyCmd(flags))

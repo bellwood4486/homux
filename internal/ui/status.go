@@ -106,7 +106,7 @@ func displayPath(s inspect.TargetState) string {
 
 func profileLabel(profile string) string {
 	if profile == "" {
-		return "(none)"
+		return noneChoice
 	}
 	return profile
 }
