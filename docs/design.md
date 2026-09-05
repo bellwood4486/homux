@@ -59,7 +59,7 @@ homux/
     ├── inspect/              desired × HOME 実状態 → []TargetState
     ├── plan/                 []TargetState → []Action。純粋
     ├── exec/                 Action の実行。破壊的操作はここだけ
-    └── ui/                   huh ラッパ・出力整形。ここだけが huh と色を知る
+    └── ui/                   対話プロンプト・出力整形。ここだけが huh と色を知る
 ```
 
 ### 2.1 パッケージの import 制約
@@ -191,7 +191,7 @@ repo path は入力時に絶対パスへ展開し、`filepath.EvalSymlinks` で�
 | 用途 | ライブラリ | 備考 |
 |---|---|---|
 | CLI フレームワーク | `github.com/spf13/cobra` | サブコマンド階層と shell 補完生成のため |
-| 対話 UI | `github.com/charmbracelet/huh` | Select / MultiSelect / Confirm。`internal/ui` に閉じ込める |
+| 対話 UI | `github.com/charmbracelet/huh` | MultiSelect が要る `profile create` で導入する。`internal/ui` に閉じ込める |
 | glob | `github.com/bmatcuk/doublestar/v4` | `ignore` の `**` サポート |
 | TOML 読み取り | `github.com/pelletier/go-toml/v2` | 書き込みは §6 参照 |
 | TTY 判定 | `golang.org/x/term` | `--color auto` の非 TTY 検出用（ADR 0009） |
@@ -200,7 +200,9 @@ Go は 1.27 以降。ライセンスは MIT。
 
 **huh は bubbletea v1 系に依存しており、間接依存を含め約 30 パッケージを持ち込む。** 将来 huh v2 への追従が発生しうるため、`internal/ui` の外に huh の型を漏らさない。
 
-huh を使うのは `init` と `profile` 系のウィザード（Select / MultiSelect）である。`apply` の確認は 1 問 1 答であり Select の表現力を必要としないため、`internal/ui` の素の `[y/N]` プロンプト（`ui.Prompter`）で行う。spec §12.4 のプロンプト例をそのまま出せることと、出力が丸ごと検証可能であることを取る。
+対話は既定で `internal/ui` の素のプロンプト（`ui.Prompter`）で行う。`apply` の確認（`[y/N]`）も `init` の 3 つの問い（パス入力・`[y/N]`・profile の単一選択）も 1 問 1 答であり、spec のプロンプト例をそのまま出せて、出力が丸ごと検証できることを取る。
+
+**huh は `profile create` の migration wizard で MultiSelect が要る時点まで導入しない**（ADR 0010）。go.mod に入るのもそのときである。
 
 ### 5.1 バージョン表示
 
@@ -217,6 +219,10 @@ huh を使うのは `init` と `profile` 系のウィザード（Select / MultiS
 `profile create` が `init` の生成した雛形コメントを消してしまう事故を防ぐためであり、INV-10（CLI が変更しても結果が理解可能であること）の要請でもある。
 
 `profiles` 配列の**内部**に書かれたコメントは失われる（spec §15 の既知の制限）。
+
+範囲置換の対象は**既に存在する** `.homux.toml` である。`init` が雛形を書き出すのは新規作成のときだけで、`O_EXCL` で開いて既存ファイルには 1 バイトも書かない。
+
+local config（`config.toml`）は homux が全体を所有するため、丸ごと Marshal してよい。一時ファイル + rename で書き、`profile` が空のときはキーごと省く（§4.2）。
 
 ---
 

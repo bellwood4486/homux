@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"golang.org/x/term"
 
@@ -49,22 +48,7 @@ var errNoInput = errors.New("no answer available on stdin")
 // 限り次回の apply でも再び問う（INV-12）。
 func (p *Prompter) ConfirmAction(a plan.Action) (bool, error) {
 	p.writeDetails(a)
-	question := questionFor(a.Kind)
-
-	for {
-		fmt.Fprintf(p.out, "%s [y/N]: ", question)
-		line, err := p.in.ReadString('\n')
-		if line == "" && err != nil {
-			return false, errNoInput
-		}
-		switch strings.ToLower(strings.TrimSpace(line)) {
-		case "y", "yes":
-			return true, nil
-		case "", "n", "no":
-			return false, nil
-		}
-		fmt.Fprintln(p.out, `Please answer "y" or "n".`)
-	}
+	return p.Confirm(questionFor(a.Kind))
 }
 
 // writeDetails は問いの前に「何が起きているのか」を示す（spec §12.4）。
