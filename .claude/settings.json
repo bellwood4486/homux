@@ -17,16 +17,14 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ],
     "deny": [
       "Bash(git commit --no-verify:*)",
       "Bash(git commit -n:*)",
       "Bash(mise use:*)",
       "Bash(mise global:*)"
-    ],
-    "ask": [
-      "Bash(git push:*)"
     ]
   },
   "hooks": {
