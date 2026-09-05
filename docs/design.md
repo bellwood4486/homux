@@ -55,6 +55,7 @@ homux/
     ├── selector/             @@ suffix のパーサ。純粋
     ├── scan/                 repository walk → []Source。$HOME を見ない
     ├── resolve/              Source + profile → Resolution。純粋・副作用なし
+    ├── env/                  Home / Repo の絶対パス。環境を明示的に持ち回る
     ├── inspect/              desired × HOME 実状態 → []TargetState
     ├── plan/                 []TargetState → []Action。純粋
     ├── exec/                 Action の実行。破壊的操作はここだけ
@@ -105,9 +106,18 @@ type Resolution struct {
 
 // inspect
 type TargetState struct {
-    Resolution Resolution
-    Kind       StateKind // Linked / Missing / Occupied / Stale / Ignored / Inactive / Error
-    CurrentLink string   // 現在の symlink のリンク先（あれば）
+    Resolution Resolution  // Ignored のときはゼロ値。孤児 symlink では Target だけが埋まる
+    RepoPath   string      // Ignored のときの repo 相対パス。それ以外は空
+    Kind       StateKind   // Linked / Missing / Occupied / Stale / Ignored / Inactive / Error
+    Current    Current     // HOME 上の実状態
+    Err        error       // HOME の読み取りエラー（Resolution.Err とは別物）
+}
+
+type Current struct {
+    Kind    CurrentKind // Absent / File / Dir / Symlink
+    Link    string      // Readlink の生の値。相対リンクなら相対のまま
+    LinkAbs string      // Link を絶対化・正規化したもの
+    Managed bool        // リンク先が repo 配下に解決されるか（spec §9.1）
 }
 
 // plan
@@ -121,6 +131,8 @@ type Action struct {
 ```
 
 `Reason` は `explain` の出力に直結する。resolver は「選んだ結果」だけでなく「なぜそう選んだか」を必ず返す。
+
+`Current` を `fs.FileMode` ではなく `CurrentKind` で公開するのは、`plan` が `io/fs` を import できないためである（§2.1）。ファイルシステムを読むのは `inspect` の 1 度だけで、`plan` と `ui` はその値だけを見る。`Stale` は 1 つの `StateKind` であり、`plan` が `Resolution.Selected` の有無で relink と削除を振り分ける（spec §9.2 の種類1／種類2）。
 
 ---
 
