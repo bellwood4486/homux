@@ -1,0 +1,221 @@
+package inspect
+
+import (
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+
+	"github.com/bellwood4486/homux/internal/resolve"
+)
+
+func (f *fixture) all(t *testing.T, in Input) []TargetState {
+	t.Helper()
+	states, err := All(f.env, in)
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	return states
+}
+
+// paths は状態の Path を Kind 付きで返す。
+func paths(states []TargetState) []string {
+	out := make([]string, len(states))
+	for i, s := range states {
+		out[i] = s.Kind.String() + " " + s.Path()
+	}
+	return out
+}
+
+// 判定表 #11: source を削除したあとに残った managed symlink（spec §9.2 の種類2）。
+// desired に無いので HOME 走査でしか見つからない。
+func TestAll_OrphanManagedSymlinkIsStale(t *testing.T) {
+	f := newFixture(t)
+	mkdirAll(t, f.repo(".config"))
+	writeFile(t, f.repo(".config/new.conf"), "x")
+	// .config/old.conf は repo から削除済み。symlink だけが残っている。
+	symlink(t, f.repo(".config/old.conf"), f.home(".config/old.conf"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".config/new.conf", ".config/new.conf")},
+	})
+
+	var orphan *TargetState
+	for i := range states {
+		if states[i].Path() == ".config/old.conf" {
+			orphan = &states[i]
+		}
+	}
+	if orphan == nil {
+		t.Fatalf("orphan not found: %v", paths(states))
+	}
+	if orphan.Kind != KindStale {
+		t.Errorf("Kind = %v, want KindStale", orphan.Kind)
+	}
+	if orphan.Resolution.Selected != nil {
+		t.Error("Selected != nil, want nil")
+	}
+	if orphan.Resolution.Reason != resolve.ReasonAbsent {
+		t.Errorf("Reason = %v, want ReasonAbsent", orphan.Resolution.Reason)
+	}
+	if orphan.Current.Kind != CurrentSymlink || !orphan.Current.Managed {
+		t.Errorf("Current = %+v, want managed symlink", orphan.Current)
+	}
+}
+
+// ADR 0004: 走査起点は repo のトップレベルエントリに対応する HOME パスに限る。
+// repo に .cache が無ければ ~/.cache 配下は見に行かない（受容した検出漏れ）。
+func TestAll_HomeScanStaysWithinRepoTopLevelEntries(t *testing.T) {
+	f := newFixture(t)
+	mkdirAll(t, f.repo(".config"))
+	symlink(t, f.repo(".cache/blob"), f.home(".cache/blob"))
+
+	states := f.all(t, Input{})
+
+	if len(states) != 0 {
+		t.Errorf("states = %v, want empty (~/.cache は走査対象外)", paths(states))
+	}
+}
+
+// ADR 0004: repo トップレベルの「ファイル」に対応する HOME パスも起点になる。
+// ignore された source の残骸はこの経路でしか見つからない。
+func TestAll_HomeScanEvaluatesTopLevelFileRoots(t *testing.T) {
+	f := newFixture(t)
+	writeFile(t, f.repo(".zshrc"), "x")
+	symlink(t, f.repo(".zshrc"), f.home(".zshrc"))
+
+	// .zshrc は ignore されており Resolutions には現れない。
+	states := f.all(t, Input{Ignored: []string{".zshrc"}})
+
+	want := []string{"ignored .zshrc", "stale .zshrc"}
+	got := paths(states)
+	sort.Strings(got)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// ADR 0004: 起点自体が symlink なら評価はするが、その先には降りない。
+func TestAll_HomeScanDoesNotDescendIntoSymlinkedRoot(t *testing.T) {
+	f := newFixture(t)
+	writeFile(t, f.repo(".claude/settings.json"), "x")
+	// ~/.claude ごと repo/.claude を指している（homux が張る形ではないが managed）。
+	symlink(t, f.repo(".claude"), f.home(".claude"))
+
+	states := f.all(t, Input{})
+
+	want := []string{"stale .claude"}
+	if got := paths(states); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// Q7-4: unmanaged なものは HOME 走査の結果に一切現れない。
+// これを守らないと ~/.config 配下の無関係なファイルが全部湧く。
+func TestAll_HomeScanIgnoresUnmanagedEntries(t *testing.T) {
+	f := newFixture(t)
+	mkdirAll(t, f.repo(".config"))
+	writeFile(t, f.home(".config/other-tool.conf"), "x")
+	mkdirAll(t, f.home(".config/nested"))
+	writeFile(t, f.home(".config/nested/deep.conf"), "x")
+	symlink(t, "/etc/hosts", f.home(".config/hosts"))
+
+	states := f.all(t, Input{})
+
+	if len(states) != 0 {
+		t.Errorf("states = %v, want empty", paths(states))
+	}
+}
+
+// Q4: desired 側で判定済みの target は HOME 走査で二重に出ない。
+func TestAll_HomeScanDoesNotDuplicateDesiredTargets(t *testing.T) {
+	f := newFixture(t)
+	writeFile(t, f.repo(".config/foo.conf"), "x")
+	symlink(t, f.repo(".config/foo.conf"), f.home(".config/foo.conf"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".config/foo.conf", ".config/foo.conf")},
+	})
+
+	want := []string{"linked .config/foo.conf"}
+	if got := paths(states); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// spec §8.2 の暗黙除外は走査起点にもならない。
+func TestAll_HomeScanSkipsGitAndConfigFile(t *testing.T) {
+	f := newFixture(t)
+	mkdirAll(t, f.repo(".git"))
+	writeFile(t, f.repo(".homux.toml"), "profiles = []")
+	symlink(t, f.repo(".git/config"), f.home(".git/config"))
+	symlink(t, f.repo(".homux.toml"), f.home(".homux.toml"))
+
+	states := f.all(t, Input{})
+
+	if len(states) != 0 {
+		t.Errorf("states = %v, want empty", paths(states))
+	}
+}
+
+// issue の受け入れ条件: HOME を読むだけで、一切変更しない。
+func TestAll_DoesNotModifyHome(t *testing.T) {
+	f := newFixture(t)
+	writeFile(t, f.repo(".config/foo.conf"), "x")
+	writeFile(t, f.repo(".zshrc"), "x")
+	writeFile(t, f.home(".zshrc"), "user's own file")
+	symlink(t, f.repo(".config/gone.conf"), f.home(".config/gone.conf"))
+	mkdirAll(t, f.home(".config/nested"))
+
+	before := snapshot(t, f.env.Home)
+	f.all(t, Input{
+		Resolutions: []resolve.Resolution{
+			selected(".config/foo.conf", ".config/foo.conf"),
+			selected(".zshrc", ".zshrc"),
+			selected(".missing/x", ".missing/x"),
+		},
+	})
+	after := snapshot(t, f.env.Home)
+
+	if strings.Join(before, "\n") != strings.Join(after, "\n") {
+		t.Errorf("HOME changed:\nbefore:\n%s\nafter:\n%s",
+			strings.Join(before, "\n"), strings.Join(after, "\n"))
+	}
+}
+
+// snapshot は root 配下のツリーを、種類とリンク先まで含めて文字列化する。
+func snapshot(t *testing.T, root string) []string {
+	t.Helper()
+	var out []string
+	err := filepath.WalkDir(root, func(p string, _ os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := os.Lstat(p)
+		if err != nil {
+			return err
+		}
+		entry := p + " " + fi.Mode().String()
+		if fi.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(p)
+			if err != nil {
+				return err
+			}
+			entry += " -> " + link
+		} else if !fi.IsDir() {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			entry += " " + string(b)
+		}
+		out = append(out, entry)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	sort.Strings(out)
+	return out
+}
