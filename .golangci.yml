@@ -1,0 +1,87 @@
+# golangci-lint v2 設定。
+#
+# この設定の主目的は一般的なコード品質チェックではなく、
+# docs/design.md §2.1 の import 境界を **機械的に強制する** ことにある。
+# 境界の記述は AGENTS.md ではなくここが正本である（二重管理を避ける）。
+
+version: "2"
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - depguard # ← 本命。import 境界の強制
+    - errorlint # errors.Is/As の誤用、%w の付け忘れ
+    - gocritic
+    - misspell
+    - nolintlint # 裸の //nolint を禁止（理由の明記を強制）
+    - revive
+    - unconvert
+
+  settings:
+    depguard:
+      rules:
+        # INV: resolve / plan / selector は純粋・決定論的であること。
+        # os を import した瞬間に設計が壊れたと分かる検知装置。
+        pure-packages:
+          files:
+            - "**/internal/resolve/**"
+            - "**/internal/plan/**"
+            - "**/internal/selector/**"
+            - "!$test" # testdata の読み込みに os が必要になりうるテストだけは許す
+          deny:
+            - pkg: os
+              desc: "resolve / plan / selector は純粋・決定論的でなければならない（docs/design.md §2.1）。ファイルシステムの状態が必要なら inspect が引数で渡すこと"
+            - pkg: os/exec
+              desc: "resolve / plan / selector は副作用を持ってはならない（docs/design.md §2.1）"
+            - pkg: io/fs
+              desc: "resolve / plan / selector はファイルシステムを知ってはならない（docs/design.md §2.1）"
+
+        # cobra を知ってよいのは internal/cli だけ。
+        # 「必要になれば CLI フレームワークを移行できる」状態を保つための境界（ADR 0007）。
+        cobra-only-in-cli:
+          files:
+            - "$all"
+            - "!**/internal/cli/**"
+          deny:
+            - pkg: github.com/spf13/cobra
+              desc: "cobra を知ってよいのは internal/cli だけ（docs/design.md §2.1）"
+
+        # huh と色ライブラリを知ってよいのは internal/ui だけ。
+        # huh は間接依存を含め約 30 パッケージを持ち込むため、閉じ込める（ADR 0007）。
+        ui-only-in-ui:
+          files:
+            - "$all"
+            - "!**/internal/ui/**"
+          deny:
+            - pkg: github.com/charmbracelet/huh
+              desc: "huh を知ってよいのは internal/ui だけ（docs/design.md §2.1）"
+            - pkg: github.com/charmbracelet/lipgloss
+              desc: "色ライブラリを知ってよいのは internal/ui だけ（docs/design.md §2.1）"
+            - pkg: github.com/charmbracelet/bubbletea
+              desc: "bubbletea を知ってよいのは internal/ui だけ（docs/design.md §2.1）"
+            - pkg: github.com/fatih/color
+              desc: "色ライブラリを知ってよいのは internal/ui だけ（docs/design.md §2.1）"
+
+    revive:
+      rules:
+        - name: exported
+          disabled: true # internal パッケージ中心なので過剰
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/bellwood4486/homux

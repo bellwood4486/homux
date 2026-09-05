@@ -1,0 +1,16 @@
+# ビルド成果物
+/homux
+/dist/
+
+# テスト・カバレッジ
+coverage.out
+*.test
+
+# 個人設定（コミットしない）
+.claude/settings.local.json
+.mise.local.toml
+lefthook-local.yml
+
+# エディタ・OS
+.DS_Store
+*.swp

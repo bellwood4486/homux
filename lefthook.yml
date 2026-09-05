@@ -1,0 +1,30 @@
+# git hooks。Claude / Codex / 手動コミットのすべてが通る唯一の関門。
+#
+# 設計方針:
+#   - hook は「検査して落とす」に徹し、ファイルを書き換えない。
+#     ステージした内容とコミットされる内容がズレると、エージェントが状態を見失うため。
+#     修正が必要なら `just fix` を明示的に叩く。
+#   - 遅い pre-commit は --no-verify への逃避を誘発するので、
+#     時間のかかる test は pre-push に置く。
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: fmt-check
+      run: just fmt-check
+      glob: "*.go"
+      fail_text: "フォーマット差分があります。`just fix` を実行してください"
+
+    - name: vet
+      run: just vet
+      glob: "*.go"
+
+    - name: lint
+      run: just lint
+      glob: "*.go"
+      fail_text: "lint 違反です。import 境界違反なら docs/design.md §2.1 を参照してください"
+
+pre-push:
+  jobs:
+    - name: test
+      run: just test
