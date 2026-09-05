@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRootCmd_NoArgsPrintsHelp(t *testing.T) {
@@ -99,6 +101,30 @@ func TestRootCmd_UnknownFlagIsUsageError(t *testing.T) {
 
 	if code != ExitUsage {
 		t.Fatalf("exit code = %d, want %d", code, ExitUsage)
+	}
+}
+
+func TestRunRoot_SilentExitErrorSuppressesErrorLine(t *testing.T) {
+	cmd := &cobra.Command{
+		Use:           "dummy",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(*cobra.Command, []string) error {
+			return silentExitError{}
+		},
+	}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{})
+
+	code := runRoot(cmd)
+
+	if code != ExitError {
+		t.Fatalf("exit code = %d, want %d", code, ExitError)
+	}
+	if out.String() != "" {
+		t.Fatalf("expected no output, got: %q", out.String())
 	}
 }
 

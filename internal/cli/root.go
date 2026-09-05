@@ -28,6 +28,13 @@ func newUsageError(err error) error { return &usageError{err: err} }
 func (e *usageError) Error() string { return e.err.Error() }
 func (e *usageError) Unwrap() error { return e.err }
 
+// silentExitError は RunE が自前で診断メッセージを出力済みであることを表す
+// （spec §10 の整形済み出力に、runRoot の汎用 "Error: ..." を重ねて出さないため）。
+// exit code は通常のエラーと同じ扱いになる（ExitError）。
+type silentExitError struct{}
+
+func (silentExitError) Error() string { return "" }
+
 type globalFlags struct {
 	repo     string
 	colorRaw string
@@ -79,7 +86,10 @@ func runRoot(cmd *cobra.Command) int {
 		return ExitOK
 	}
 
-	fmt.Fprintln(cmd.ErrOrStderr(), "Error:", err)
+	var se silentExitError
+	if !errors.As(err, &se) {
+		fmt.Fprintln(cmd.ErrOrStderr(), "Error:", err)
+	}
 
 	var ue *usageError
 	if errors.As(err, &ue) {
