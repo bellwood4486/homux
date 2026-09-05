@@ -30,7 +30,7 @@ repository
   exec      ── Action を実行する。ここだけが破壊的操作を行う
 ```
 
-**`status` と `apply --dry-run` と `apply` は同じ `[]Action` を消費する。** これを型レベルで強制することで INV-11 を守る。
+**`status` と `apply --dry-run` と `apply` は同じ `Plan` を消費する。** `Plan` は「実際にファイルシステムを触る `[]Action`」と「表示・件数集計の入力である `[]TargetState`」の両方を持つ。下流が状態を数え直したり解決し直したりする余地を残さないことで INV-11 を守る。
 
 ---
 
@@ -121,11 +121,18 @@ type Current struct {
 }
 
 // plan
+type Plan struct {
+    Actions []Action            // FS を触るものだけ。何もしない target は含まない
+    States  []TargetState       // 表示と件数集計の唯一の入力
+}
+
+func (p Plan) Errors() int      // spec §12.4 のスキップ件数 = exit code 1 の根拠
+
 type Action struct {
-    Kind    ActionKind // CreateSymlink / Relink / ReplaceTarget / RemoveStaleSymlink / Skip
+    Kind    ActionKind // CreateSymlink / Relink / ReplaceTarget / RemoveStaleSymlink
     Target  string     // 絶対パス
-    LinkTo  string     // 絶対パス
-    Backup  string     // ReplaceTarget のときの退避先
+    LinkTo  string     // 絶対パス。RemoveStaleSymlink では空
+    Backup  string     // ReplaceTarget のときの退避先。ReplaceTarget では必ず非空（INV-13）
     Confirm bool       // 実行前に確認が必要か
 }
 ```
@@ -133,6 +140,12 @@ type Action struct {
 `Reason` は `explain` の出力に直結する。resolver は「選んだ結果」だけでなく「なぜそう選んだか」を必ず返す。
 
 `Current` を `fs.FileMode` ではなく `CurrentKind` で公開するのは、`plan` が `io/fs` を import できないためである（§2.1）。ファイルシステムを読むのは `inspect` の 1 度だけで、`plan` と `ui` はその値だけを見る。`Stale` は 1 つの `StateKind` であり、`plan` が `Resolution.Selected` の有無で relink と削除を振り分ける（spec §9.2 の種類1／種類2）。
+
+`Action` に「何もしない」を表す `Skip` は無い。理由を持たない `Skip` を並べても `ui` は結局 `TargetState` を引き直すことになり、`Ignored` は HOME target を持たないため `Action` と 1:1 に対応させることもできない。何もしない target は `Plan.States` にのみ現れる。
+
+`plan` は `Action` を作る直前に、`Target` が repo 配下に解決されないことを検査する。`inspect` の HOME 走査は repo が `$HOME` 配下にある場合に repo 内へ降りうるため、ここが INV-14 を構造として守る最後の関門になる。違反した状態は `Action` を生成せず `KindError` に落とす。
+
+退避先の timestamp に使う時刻は `Input.Now` で受け取る。`plan` は `time.Now()` を呼ばない。`MkdirAll`（spec §4.1）は独立した `Action` にせず、`CreateSymlink` / `Relink` / `ReplaceTarget` の暗黙の一部として `exec` が行う。
 
 ---
 
