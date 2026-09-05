@@ -25,6 +25,11 @@
       "Bash(git commit -n:*)",
       "Bash(mise use:*)",
       "Bash(mise global:*)"
+    ],
+    "ask": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)"
     ]
   },
   "hooks": {
