@@ -70,6 +70,7 @@ func NewRootCmd() *cobra.Command {
 	})
 
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newStatusCmd(flags))
 
 	return root
 }
