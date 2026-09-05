@@ -93,4 +93,6 @@ just test-one ./internal/selector   # 反復ループ用。パッケージを絞
 
 `docs/design.md` §9 にフェーズが定義されている。純粋パッケージ（`selector` → `config` → `scan` → `resolve`）を先に固め、その後は縦切りで常に動くバイナリを保つ。
 
-個々のタスク分解と進捗は superpowers の実装計画が持つ。`docs/` にタスク管理文書を作らないこと（二重管理になる）。
+タスク分解と進捗の正本は Linear プロジェクト [homux](https://linear.app/bellwood4486/project/homux-0dbb86b4f471) が持つ。フェーズは Milestone、`docs/design.md` §9 の各項目が issue に対応する。`docs/` にタスク管理文書を作らないこと（二重管理になる）。
+
+作業は issue 1 件を単位として受け取る。superpowers の実装計画はその 1 件を実装する間だけ使う揮発的なもので、sub-issue として Linear に書き戻さない。中断状態はブランチが持つ（issue 1 件 = ブランチ 1 本 = PR 1 本）。
