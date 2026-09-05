@@ -56,13 +56,7 @@ func RenderStatus(w io.Writer, home, profile string, states []inspect.TargetStat
 	}
 	fmt.Fprintln(w, summaryLine(changes, errs))
 
-	for _, s := range states {
-		if s.Kind != inspect.KindError {
-			continue
-		}
-		fmt.Fprintln(w)
-		fmt.Fprint(w, diagnosticFor(s))
-	}
+	writeDiagnostics(w, states)
 }
 
 // visible は --all 無指定時に表示する状態を判定する（spec §12.2:
