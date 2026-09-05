@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/bellwood4486/homux/internal/env"
 	"github.com/bellwood4486/homux/internal/inspect"
 	"github.com/bellwood4486/homux/internal/plan"
-	"github.com/bellwood4486/homux/internal/resolve"
 	"github.com/bellwood4486/homux/internal/scan"
 	"github.com/bellwood4486/homux/internal/ui"
 )
@@ -36,32 +34,10 @@ func newExplainCmd(flags *globalFlags) *cobra.Command {
 // ui.RenderExplain に渡す。status と同じ resolver / planner を使うことで
 // INV-11 を守る（解決ロジックを explain のために書き直さない）。
 func runExplain(cmd *cobra.Command, repoFlag, argPath string) error {
-	ws, err := loadWorkspace(repoFlag)
+	ws, scanned, p, err := buildPlan(cmd, repoFlag)
 	if err != nil {
 		return err
 	}
-
-	scanned, err := scan.Repository(ws.env.Repo, ws.repo.Ignore)
-	if err != nil {
-		return err
-	}
-
-	resolutions, err := resolve.All(resolve.Input{
-		Sources:  scanned.Sources,
-		Profiles: ws.repo.Profiles,
-		Active:   ws.profile,
-	})
-	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
-		return silentExitError{}
-	}
-
-	states, err := inspect.All(ws.env, inspect.Input{Resolutions: resolutions, Ignored: scanned.Ignored})
-	if err != nil {
-		return err
-	}
-
-	p := plan.All(ws.env, plan.Input{States: states, Now: time.Now()})
 
 	target, err := explainTarget(ws.env, scanned, argPath)
 	if err != nil {

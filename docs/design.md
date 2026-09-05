@@ -200,6 +200,8 @@ Go は 1.27 以降。ライセンスは MIT。
 
 **huh は bubbletea v1 系に依存しており、間接依存を含め約 30 パッケージを持ち込む。** 将来 huh v2 への追従が発生しうるため、`internal/ui` の外に huh の型を漏らさない。
 
+huh を使うのは `init` と `profile` 系のウィザード（Select / MultiSelect）である。`apply` の確認は 1 問 1 答であり Select の表現力を必要としないため、`internal/ui` の素の `[y/N]` プロンプト（`ui.Prompter`）で行う。spec §12.4 のプロンプト例をそのまま出せることと、出力が丸ごと検証可能であることを取る。
+
 ### 5.1 バージョン表示
 
 `homux version` および `--version` は `debug.ReadBuildInfo()` から値を取る。`go install` した場合でも VCS リビジョンが表示されるようにする。`-ldflags` によるバージョン埋め込みは、リリース用ビルドを導入する時点で追加する。

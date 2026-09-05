@@ -474,6 +474,8 @@ homux version
 - `init` は `--repo` と `--profile` をすべて指定すれば非対話実行できる
 - `profile create` / `rename` / `delete` は非 TTY では実行できない
 
+エラーになるのは**対話 UI を起動する必要が生じたとき**である。`apply` の plan に確認を要する操作（Occupied / Stale）が 1 件も無ければ、`--yes` なしの非 TTY でもそのまま実行する。そうしないと、収束済みの HOME に対する再実行がパイプ越しに永久に失敗する。
+
 ---
 
 ## 12. コマンド詳細
@@ -609,12 +611,23 @@ Would create symlink:
 
 Would ask before replacing:
   ~/.claude/settings.json
+  -> ~/dotfiles/.claude/settings.json@@work
+
+Would relink:
+  ~/.vimrc
+  -> ~/dotfiles/.vimrc@@work
 
 Would remove stale symlink:
   ~/.config/old/config
 
 No changes made.
 ```
+
+同じ種類の操作は 1 つの見出しにまとめる。見出しの順序は上記で固定する。
+
+`apply` も実行前にこの同じブロックを表示する。最初の確認を出す前に全体像を示すためであり、`--yes` の非対話実行でも「何をしたか」がログに残る。
+
+repository に構造エラーがある場合は、`status` と同じ診断ブロックを出して終了コード `1` を返す（§11.3 はコマンドに依らない）。何も実行しないことは終了コードを `0` にする理由にならない。
 
 独立した `homux dry-run` コマンドは作らない。
 

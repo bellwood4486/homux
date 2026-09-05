@@ -2,15 +2,8 @@
 package cli
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/spf13/cobra"
 
-	"github.com/bellwood4486/homux/internal/inspect"
-	"github.com/bellwood4486/homux/internal/plan"
-	"github.com/bellwood4486/homux/internal/resolve"
-	"github.com/bellwood4486/homux/internal/scan"
 	"github.com/bellwood4486/homux/internal/ui"
 )
 
@@ -38,32 +31,10 @@ func newStatusCmd(flags *globalFlags) *cobra.Command {
 // 実行し、その結果を ui.RenderStatus に渡す。status と apply が同じ
 // resolver / planner を使うのは INV-11 の要請である。
 func runStatus(cmd *cobra.Command, repoFlag string, all, verbose bool) error {
-	ws, err := loadWorkspace(repoFlag)
+	ws, _, p, err := buildPlan(cmd, repoFlag)
 	if err != nil {
 		return err
 	}
-
-	scanned, err := scan.Repository(ws.env.Repo, ws.repo.Ignore)
-	if err != nil {
-		return err
-	}
-
-	resolutions, err := resolve.All(resolve.Input{
-		Sources:  scanned.Sources,
-		Profiles: ws.repo.Profiles,
-		Active:   ws.profile,
-	})
-	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
-		return silentExitError{}
-	}
-
-	states, err := inspect.All(ws.env, inspect.Input{Resolutions: resolutions, Ignored: scanned.Ignored})
-	if err != nil {
-		return err
-	}
-
-	p := plan.All(ws.env, plan.Input{States: states, Now: time.Now()})
 
 	ui.RenderStatus(cmd.OutOrStdout(), ws.env.Home, ws.profile, p.States, ui.StatusOptions{All: all, Verbose: verbose})
 
