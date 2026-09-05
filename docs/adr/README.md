@@ -16,3 +16,4 @@
 | [0006](0006-no-permission-management.md) | ファイルパーミッションを管理しない |
 | [0007](0007-library-selection.md) | ライブラリ選定（cobra / huh / doublestar / go-toml v2） |
 | [0008](0008-toml-range-replace.md) | `.homux.toml` は `profiles` 配列だけを範囲置換する |
+| [0009](0009-tty-detection-library.md) | TTY 判定に golang.org/x/term を採用する |

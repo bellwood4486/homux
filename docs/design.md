@@ -169,6 +169,7 @@ repo path は入力時に絶対パスへ展開し、`filepath.EvalSymlinks` で�
 | 対話 UI | `github.com/charmbracelet/huh` | Select / MultiSelect / Confirm。`internal/ui` に閉じ込める |
 | glob | `github.com/bmatcuk/doublestar/v4` | `ignore` の `**` サポート |
 | TOML 読み取り | `github.com/pelletier/go-toml/v2` | 書き込みは §6 参照 |
+| TTY 判定 | `golang.org/x/term` | `--color auto` の非 TTY 検出用（ADR 0009） |
 
 Go は 1.27 以降。ライセンスは MIT。
 
