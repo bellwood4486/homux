@@ -22,9 +22,11 @@
     "deny": [
       "Bash(git commit --no-verify:*)",
       "Bash(git commit -n:*)",
-      "Bash(git push:*)",
       "Bash(mise use:*)",
       "Bash(mise global:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
     ]
   },
   "hooks": {
