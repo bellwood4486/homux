@@ -151,7 +151,7 @@ type Env struct {
 場所は `$XDG_CONFIG_HOME/homux/config.toml`。`XDG_CONFIG_HOME` が未設定なら `~/.config/homux/config.toml`。
 
 ```toml
-repo = "/Users/yoshiharu/dotfiles"
+repo = "~/dotfiles"
 profile = "work"          # キーの不在 = profile なし
 ```
 
