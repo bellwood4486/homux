@@ -12,11 +12,38 @@ homux は、dotfiles repository を `$HOME` の mirror として扱います。�
 
 ### 1. インストール
 
+[Releases](https://github.com/bellwood4486/homux/releases) からお使いのプラットフォーム向けのアーカイブを取得し、展開して PATH の通った場所に置きます。
+
+```bash
+# 例: macOS / Apple Silicon
+VERSION=v0.1.0
+curl -fsSLO "https://github.com/bellwood4486/homux/releases/download/${VERSION}/homux_${VERSION#v}_darwin_arm64.tar.gz"
+tar xzf "homux_${VERSION#v}_darwin_arm64.tar.gz"
+mv homux ~/.local/bin/
+```
+
+対応プラットフォームは `darwin/{amd64,arm64}` と `linux/{amd64,arm64}` です。Windows は対象外です（`os.Symlink` が管理者権限または開発者モードを要求するため）。
+
+`go install` でも入れられます。この場合 Go 1.27 以降が必要です。
+
 ```bash
 go install github.com/bellwood4486/homux@latest
 ```
 
-Go 1.27 以降が必要です。
+#### 配布物を検証する
+
+リリース成果物には SLSA build provenance が付いています。[GitHub CLI](https://cli.github.com/) があれば、そのアーカイブが本当にこのリポジトリの release workflow でビルドされたものかを確認できます。
+
+```bash
+gh attestation verify "homux_${VERSION#v}_darwin_arm64.tar.gz" --repo bellwood4486/homux
+```
+
+`checksums.txt` で改ざんの有無も確認できます。
+
+```bash
+curl -fsSLO "https://github.com/bellwood4486/homux/releases/download/${VERSION}/checksums.txt"
+shasum -a 256 -c checksums.txt --ignore-missing
+```
 
 ### 2. リポジトリを準備する
 
@@ -125,6 +152,8 @@ just check
 ```
 
 `just check` はフォーマットチェック、`go vet`、lint、test をまとめて実行します。
+
+リリースは `git push origin vX.Y.Z` を起点に GitHub Actions が実行します。手元での下見は `just release-dry` です。
 
 ## ライセンス
 

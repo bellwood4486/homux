@@ -1,0 +1,38 @@
+name: Release
+
+# `git push origin vX.Y.Z` が起点。タグは PR CI を通っていないコミットにも
+# 打てるため、GoReleaser の前に just check を再走させる。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # Releases の作成
+      id-token: write      # build provenance の署名
+      attestations: write  # attestation の登録
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # GoReleaser がリリースノートを組み立てるのに全履歴とタグが要る
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v4
+
+      - run: just check
+
+      - run: goreleaser release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/checksums.txt

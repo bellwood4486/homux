@@ -7,25 +7,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// buildVersion は debug.ReadBuildInfo() からバージョン文字列を組み立てる。
-// -ldflags による埋め込みは行わない（docs/design.md §5.1）。
+// リリースビルドで -ldflags により埋め込まれる値（docs/design.md §5.1）。
+//
+// debug.ReadBuildInfo() の Main.Version にタグが入るのは module proxy 経由で
+// 取得したときだけで、GoReleaser がローカル checkout からビルドしたバイナリでは
+// "(devel)" になる。そのため配布物では ldflags を正本とする。
+var (
+	ldVersion string
+	ldCommit  string
+)
+
+// buildVersion は表示用のバージョン文字列を組み立てる。
 func buildVersion() string {
 	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "(unknown)"
-	}
+	return resolveVersion(ldVersion, ldCommit, info, ok)
+}
 
-	version := info.Main.Version
-	if version == "" {
-		version = "(devel)"
-	}
+// resolveVersion は ldflags の値を優先し、欠けている項目だけ BuildInfo で補う。
+func resolveVersion(ldVersion, ldCommit string, info *debug.BuildInfo, ok bool) string {
+	version := ldVersion
+	revision := ldCommit
 
-	var revision string
-	for _, s := range info.Settings {
-		if s.Key == "vcs.revision" {
-			revision = s.Value
-			break
+	if ok && info != nil {
+		if version == "" {
+			version = info.Main.Version
+			if version == "" {
+				version = "(devel)"
+			}
 		}
+		if revision == "" {
+			for _, s := range info.Settings {
+				if s.Key == "vcs.revision" {
+					revision = s.Value
+					break
+				}
+			}
+		}
+	}
+
+	if version == "" {
+		return "(unknown)"
 	}
 	if revision == "" {
 		return version

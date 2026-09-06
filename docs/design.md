@@ -214,7 +214,12 @@ huh は自前で端末を掴むため、選択画面だけは `cmd.SetIn` / `cmd
 
 ### 5.1 バージョン表示
 
-`homux version` および `--version` は `debug.ReadBuildInfo()` から値を取る。`go install` した場合でも VCS リビジョンが表示されるようにする。`-ldflags` によるバージョン埋め込みは、リリース用ビルドを導入する時点で追加する。
+`homux version` および `--version` は `<version> (<revision>)` を表示する。値の取り方は 2 系統ある。
+
+- **`-ldflags` で埋め込まれた値を正本とする。** GoReleaser が `internal/cli` の `ldVersion` / `ldCommit` に注入する（ADR 0013）
+- **埋め込みが無ければ `debug.ReadBuildInfo()` にフォールバックする。** `go install` で入れたバイナリはこちらを通り、VCS リビジョンが表示される
+
+ldflags が要るのは、`debug.ReadBuildInfo()` の `Main.Version` にタグが入るのが module proxy 経由で取得したときだけだからである。GoReleaser はローカル checkout からビルドするため、埋め込みが無いと配布バイナリが `(devel)` を返してしまう。
 
 ---
 
