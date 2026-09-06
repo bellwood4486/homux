@@ -65,8 +65,8 @@ func TestAll_OrphanManagedSymlinkIsStale(t *testing.T) {
 	}
 }
 
-// ADR 0004: 走査起点は repo のトップレベルエントリに対応する HOME パスに限る。
-// repo に .cache が無ければ ~/.cache 配下は見に行かない（受容した検出漏れ）。
+// ADR 0004 / 0014: 起点にならないディレクトリの配下は見に行かない。
+// repo に .cache が無く、~/.cache が実ディレクトリなら、その配下は走査対象外。
 func TestAll_HomeScanStaysWithinRepoTopLevelEntries(t *testing.T) {
 	f := newFixture(t)
 	mkdirAll(t, f.repo(".config"))
@@ -80,7 +80,7 @@ func TestAll_HomeScanStaysWithinRepoTopLevelEntries(t *testing.T) {
 }
 
 // ADR 0004: repo トップレベルの「ファイル」に対応する HOME パスも起点になる。
-// ignore された source の残骸はこの経路でしか見つからない。
+// source が repo に残ったまま ignore されたときの残骸はこの経路で見つかる。
 func TestAll_HomeScanEvaluatesTopLevelFileRoots(t *testing.T) {
 	f := newFixture(t)
 	writeFile(t, f.repo(".zshrc"), "x")
@@ -97,7 +97,7 @@ func TestAll_HomeScanEvaluatesTopLevelFileRoots(t *testing.T) {
 	}
 }
 
-// ADR 0004: 起点自体が symlink なら評価はするが、その先には降りない。
+// ADR 0004 / 0014: 起点自体が symlink なら評価はするが、その先には降りない。
 func TestAll_HomeScanDoesNotDescendIntoSymlinkedRoot(t *testing.T) {
 	f := newFixture(t)
 	writeFile(t, f.repo(".claude/settings.json"), "x")
@@ -251,4 +251,101 @@ func snapshot(t *testing.T, root string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ADR 0014 / 表 2 行目: repo のトップレベルにある「ファイル」を削除すると、
+// repo 由来の起点が消える。HOME 直下の symlink を起点に加えることで検出する。
+func TestAll_HomeScanDetectsOrphanFromDeletedTopLevelFile(t *testing.T) {
+	f := newFixture(t)
+	// repo には別のファイルだけが残っている。.zshrc は削除済み。
+	writeFile(t, f.repo(".gitconfig"), "x")
+	symlink(t, f.repo(".gitconfig"), f.home(".gitconfig"))
+	symlink(t, f.repo(".zshrc"), f.home(".zshrc"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".gitconfig", ".gitconfig")},
+	})
+
+	want := []string{"linked .gitconfig", "stale .zshrc"}
+	got := paths(states)
+	sort.Strings(got)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// ADR 0014 / 表 1 行目: 2 階層目以降のディレクトリ削除は、トップレベルの起点が
+// 残るので従来どおり検出できる。回帰させない。
+func TestAll_HomeScanDetectsOrphanFromDeletedNestedDir(t *testing.T) {
+	f := newFixture(t)
+	// repo/.config は残っているが、repo/.config/nvim/ は削除済み。
+	writeFile(t, f.repo(".config/ghostty/config"), "x")
+	symlink(t, f.repo(".config/ghostty/config"), f.home(".config/ghostty/config"))
+	symlink(t, f.repo(".config/nvim/init.lua"), f.home(".config/nvim/init.lua"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".config/ghostty/config", ".config/ghostty/config")},
+	})
+
+	want := []string{"linked .config/ghostty/config", "stale .config/nvim/init.lua"}
+	got := paths(states)
+	sort.Strings(got)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// ADR 0014 / 表 3 行目: repo のトップレベルにある「ディレクトリ」を削除した場合の
+// 残骸は検出できない。これは受容した仕様であり、テストで固定しておく。
+// 検出するには HOME 直下の実ディレクトリを全部起点にするしかなく、それは
+// ADR 0004 が却下した HOME 全走査そのものになる。
+func TestAll_HomeScanDoesNotDetectOrphanFromDeletedTopLevelDir(t *testing.T) {
+	f := newFixture(t)
+	// repo/.config/ ごと削除済み。~/.config は実ディレクトリなので起点にならない。
+	writeFile(t, f.repo(".zshrc"), "x")
+	symlink(t, f.repo(".config/ghostty/config"), f.home(".config/ghostty/config"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".zshrc", ".zshrc")},
+	})
+
+	want := []string{"missing .zshrc"}
+	if got := paths(states); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v (受容した検出漏れ)", got, want)
+	}
+}
+
+// ADR 0014: 起点が repo 由来と HOME 由来で重複しても、二重に報告しない。
+func TestAll_HomeScanDeduplicatesRoots(t *testing.T) {
+	f := newFixture(t)
+	// repo に .zshrc があるので repo 由来の起点になり、~/.zshrc は symlink なので
+	// HOME 由来の起点にもなる。desired には無い（ignore 済み）。
+	writeFile(t, f.repo(".zshrc"), "x")
+	symlink(t, f.repo(".zshrc"), f.home(".zshrc"))
+
+	states := f.all(t, Input{Ignored: []string{".zshrc"}})
+
+	want := []string{"ignored .zshrc", "stale .zshrc"}
+	got := paths(states)
+	sort.Strings(got)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// ADR 0014: HOME 直下に repo を指さない symlink があっても拾わない。
+func TestAll_HomeScanIgnoresUnmanagedTopLevelSymlinks(t *testing.T) {
+	f := newFixture(t)
+	writeFile(t, f.repo(".zshrc"), "x")
+	symlink(t, "/etc/hosts", f.home(".hosts"))
+	symlink(t, f.home("Documents/notes"), f.home("notes"))
+
+	states := f.all(t, Input{
+		Resolutions: []resolve.Resolution{selected(".zshrc", ".zshrc")},
+	})
+
+	want := []string{"missing .zshrc"}
+	if got := paths(states); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("states = %v, want %v", got, want)
+	}
 }

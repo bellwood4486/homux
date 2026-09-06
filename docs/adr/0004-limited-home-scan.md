@@ -42,3 +42,7 @@ Git への依存が発生し、INV-03（Git はそのまま使う。ラップし
 - `homux explain <その残骸のパス>` を打てば個別には診断できる
 - フルスキャン用のフラグは、実際に困る事例が出るまで追加しない
 - `.homux.toml` の `ignore` は repo path に対する規則であり、HOME 走査には適用しない
+
+---
+
+Superseded by [0014](0014-home-top-level-symlink-roots.md)（走査起点に `$HOME` 直下の symlink を加え、受容する検出漏れをトップレベルのディレクトリ削除だけに絞った）

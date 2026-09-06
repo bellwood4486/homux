@@ -353,18 +353,23 @@ homux は状態データベースを持たない。管理下かどうかは次�
 | **種類1** | profile 切替や source rename により、desired target のリンク先が変わった | desired targets の走査で検出できる |
 | **種類2** | source が削除・ignore 化され、desired から消えたのに symlink が残った | HOME 側の走査が必要 |
 
-種類2 のための HOME 走査は、**repo のトップレベルエントリに対応する HOME パスを起点とし、そこから再帰する**（symlink 自体は評価するが、その先には降りない）。
+種類2 のための HOME 走査は、次の 2 つの和を起点とし、そこから再帰する（symlink 自体は評価するが、その先には降りない）。
+
+- repo のトップレベルエントリに対応する HOME パス
+- `$HOME` 直下の symlink
+
+`$HOME` 直下は列挙するだけで、実ディレクトリには降りない。
 
 ```text
-repo に .zshrc, .claude/, .config/ がある場合
-  -> 走査対象は ~/.claude/ と ~/.config/ の配下のみ
+repo に .zshrc, .claude/, .config/ があり、~/.gitconfig が残骸の symlink である場合
+  -> 走査対象は ~/.zshrc, ~/.claude/ と ~/.config/ の配下、および ~/.gitconfig
 ```
 
-**既知の制限**: 「repo からディレクトリごと source を削除した」場合、その残骸を検出できない。残骸は dangling symlink となるため実害は小さいものとして受容する。
+**既知の制限**: 「repo から**トップレベルの**ディレクトリごと source を削除した」場合、その残骸を検出できない。残骸は dangling symlink となるため実害は小さいものとして受容する（§15）。トップレベルのファイル削除、および 2 階層目以降のディレクトリ削除は検出できる。
 
 `.homux.toml` の `ignore` は repo path に対する規則であり、HOME 走査には適用しない。
 
-→ ADR 0004
+→ ADR 0004 / ADR 0014
 
 ---
 
@@ -868,7 +873,7 @@ repository structure + .homux.toml + local active profile
 
 | 制限 | 理由 |
 |---|---|
-| repo からディレクトリごと source を削除した場合、HOME に残る symlink を検出できない | HOME 全走査のコストを避けるため（ADR 0004） |
+| repo から**トップレベルの**ディレクトリごと source を削除した場合、HOME に残る symlink を検出できない（`.config/` を消す等）。トップレベルのファイル削除と、2 階層目以降のディレクトリ削除は検出できる | HOME 全走査のコストを避けるため（ADR 0004 / ADR 0014） |
 | ファイルパーミッションを管理しない。`~/.ssh/config` などは clone 後に 644 となり利用できない | per-file mapping を持たない思想との衝突（ADR 0006） |
 | `@@` を含む正当なファイル名は管理できない | 実在しないと判断（ADR 0002） |
 | `profiles` 配列**内部**に書かれたコメントは `profile` コマンドで失われる | TOML の AST 編集を避けるため（ADR 0008） |

@@ -135,6 +135,18 @@ homux は意図的に小さく保ちます。
 
 リポジトリ内は普通の `mv` / `cp` / `rm` / `git` で編集できます。変更後に `status`、`explain`、`apply --dry-run` で結果を確認してください。
 
+### 既知の制限: トップレベルのディレクトリ削除
+
+ソースを削除すると HOME 側に symlink が残ります。`status` はこれを `Stale` として報告しますが、**リポジトリのトップレベルにあるディレクトリをまるごと削除した場合だけは検出できません。**
+
+```text
+rm repo/.zshrc          -> ~/.zshrc は Stale として報告される
+rm -r repo/.config/nvim -> ~/.config/nvim/* は Stale として報告される
+rm -r repo/.config      -> ~/.config/** の残骸は報告されない  ← ここだけ検出できない
+```
+
+これは `$HOME` 全体を走査しないための意図的な割り切りです（[ADR 0014](docs/adr/0014-home-top-level-symlink-roots.md)）。トップレベルのディレクトリを消すときは、残った symlink を `rm` で自分で片付けてください。個別のパスであれば `homux explain <path>` で診断できます。
+
 ## プロジェクトの状態
 
 開発中です。コマンドや挙動が変わる可能性があります。詳細な要求・設計・履歴は次の文書を参照してください。

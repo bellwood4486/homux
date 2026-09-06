@@ -11,7 +11,7 @@
 | [0001](0001-file-level-symlinks.md) | symlink はファイル単位とする |
 | [0002](0002-double-at-delimiter.md) | profile の区切り子を `@@` とする |
 | [0003](0003-no-state-database.md) | 管理判定を「repo 配下を指す symlink」とし、状態 DB を持たない |
-| [0004](0004-limited-home-scan.md) | HOME 走査を repo 対応部分に限定し、検出漏れを受容する |
+| [0004](0004-limited-home-scan.md) | HOME 走査を repo 対応部分に限定し、検出漏れを受容する（→ 0014） |
 | [0005](0005-no-negative-selector.md) | negative selector を V1 に含めない |
 | [0006](0006-no-permission-management.md) | ファイルパーミッションを管理しない |
 | [0007](0007-library-selection.md) | ライブラリ選定（cobra / huh / doublestar / go-toml v2） |
@@ -21,3 +21,4 @@
 | [0011](0011-huh-for-fork-selection-only.md) | `profile create` の選択画面にだけ huh を使い、素のプロンプトと同居させる |
 | [0012](0012-backup-by-rename.md) | 退避は rename 一本とし、退避先は plan が決める（衝突時は停止） |
 | [0013](0013-goreleaser-distribution.md) | 配布は GoReleaser で行い、GitHub Releases にバイナリと provenance を出す |
+| [0014](0014-home-top-level-symlink-roots.md) | 走査起点に `$HOME` 直下の symlink を加え、検出漏れをトップレベルのディレクトリ削除だけに絞る |

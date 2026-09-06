@@ -18,24 +18,66 @@ const (
 // scanHome は spec §9.2 の種類2、すなわち desired から消えたのに $HOME に
 // 残った managed symlink を探す。
 //
-// 走査起点は repo のトップレベルエントリに対応する HOME パスに限り、そこから
-// 再帰する。symlink 自体は評価するが、その先には降りない（ADR 0004）。
+// 走査起点は scanRoots が決める。そこから先は HOME 側だけを再帰する。
+// symlink 自体は評価するが、その先には降りない（ADR 0004 / 0014）。
 // desired に含まれる target は desired 側で判定済みなので除外する。
 // .homux.toml の ignore は repo path に対する規則なので、ここでは適用しない。
 func scanHome(e env.Env, desired map[string]bool) ([]TargetState, error) {
-	entries, err := os.ReadDir(e.Repo)
+	roots, err := scanRoots(e)
 	if err != nil {
 		return nil, err
 	}
 
 	s := homeScan{env: e, desired: desired}
-	for _, entry := range entries {
-		if name := entry.Name(); name == gitDir || name == repoConfigFile {
-			continue
-		}
-		s.root(filepath.Join(e.Home, entry.Name()))
+	for _, root := range roots {
+		s.root(root)
 	}
 	return s.found, nil
+}
+
+// scanRoots は走査起点の集合を返す（ADR 0014）。
+//
+//   - repo のトップレベルエントリに対応する HOME パス
+//   - $HOME 直下の symlink
+//
+// の和である。後者が無いと、repo のトップレベルにあるファイルを削除したときに
+// 起点そのものが消え、HOME に残った symlink を見逃す。
+//
+// $HOME 直下は ReadDir するだけで、実ディレクトリには降りない。降りた瞬間に
+// ADR 0004 が却下した HOME 全走査になる。
+func scanRoots(e env.Env) ([]string, error) {
+	repoEntries, err := os.ReadDir(e.Repo)
+	if err != nil {
+		return nil, err
+	}
+	homeEntries, err := os.ReadDir(e.Home)
+	if err != nil {
+		return nil, err
+	}
+
+	var roots []string
+	seen := make(map[string]bool)
+	add := func(name string) {
+		// spec §8.2 の暗黙除外は走査起点にもならない。
+		if name == gitDir || name == repoConfigFile {
+			return
+		}
+		if seen[name] {
+			return
+		}
+		seen[name] = true
+		roots = append(roots, filepath.Join(e.Home, name))
+	}
+
+	for _, entry := range repoEntries {
+		add(entry.Name())
+	}
+	for _, entry := range homeEntries {
+		if entry.Type()&fs.ModeSymlink != 0 {
+			add(entry.Name())
+		}
+	}
+	return roots, nil
 }
 
 type homeScan struct {
