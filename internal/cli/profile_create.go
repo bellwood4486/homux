@@ -41,19 +41,19 @@ func newProfileCreateCmd(flags *globalFlags) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runProfileCreate(cmd, flags.repo, args[0], ui.SelectForkTargets, interactive)
+			return runProfileCreate(cmd, flags, args[0], ui.SelectForkTargets, interactive)
 		},
 	}
 }
 
 // runProfileCreate は spec §12.9 の手順をそのままなぞる。
-func runProfileCreate(cmd *cobra.Command, repoFlag, name string, sel forkSelector, interactive bool) error {
+func runProfileCreate(cmd *cobra.Command, flags *globalFlags, name string, sel forkSelector, interactive bool) error {
 	if !selector.ValidProfileName(name) {
 		return newUsageError(fmt.Errorf(
 			"invalid profile name %q: must match ^[a-z0-9][a-z0-9_-]*$", name))
 	}
 
-	ws, err := loadWorkspace(repoFlag)
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
@@ -79,11 +79,11 @@ func runProfileCreate(cmd *cobra.Command, repoFlag, name string, sel forkSelecto
 		Active:   ws.profile,
 	})
 	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 	if err := structuralError(resolutions); err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 
@@ -103,7 +103,7 @@ func runProfileCreate(cmd *cobra.Command, repoFlag, name string, sel forkSelecto
 	}
 
 	out := cmd.OutOrStdout()
-	ui.RenderMigrationPlan(out, plan)
+	ui.RenderMigrationPlan(out, flags.colorOut, plan)
 
 	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home).Confirm("Apply this migration?")
 	if err != nil {
@@ -120,7 +120,7 @@ func runProfileCreate(cmd *cobra.Command, repoFlag, name string, sel forkSelecto
 	}
 
 	res := exec.ForkAll(forks)
-	ui.RenderMigrationResult(out, ws.env.Repo, name, res)
+	ui.RenderMigrationResult(out, flags.colorOut, ws.env.Repo, name, res)
 	if res.Err != nil {
 		return silentExitError{}
 	}

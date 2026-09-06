@@ -39,7 +39,7 @@ func runInitInteractive(t *testing.T, repoFlag, stdin string, opts initOptions) 
 	cmd.SetIn(strings.NewReader(stdin))
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	err = runInit(cmd, repoFlag, opts, true)
+	err = runInit(cmd, &globalFlags{repo: repoFlag}, opts, true)
 	return out.String(), err
 }
 

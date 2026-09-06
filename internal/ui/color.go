@@ -43,6 +43,43 @@ func (m ColorMode) String() string {
 	}
 }
 
+// Palette は色を出力するかどうかを表す。ゼロ値（ColorOff）が無色である
+// （spec §11.1: 既定は色なし相当の auto + 非 TTY）。
+//
+// 表す色数は状態の深刻度 3 段階（OK / Warn / Error）に限定する。8 色 ANSI の
+// 範囲でこれ以上の色分けは行わない（spec 外・256色やテーマはスコープ外）。
+type Palette bool
+
+const (
+	ColorOff Palette = false
+	ColorOn  Palette = true
+)
+
+// ANSI エスケープの直書き。ライブラリは使わない（ADR 0009）。
+const (
+	ansiGreen  = "\x1b[32m"
+	ansiYellow = "\x1b[33m"
+	ansiRed    = "\x1b[31m"
+	ansiReset  = "\x1b[0m"
+)
+
+func (p Palette) paint(code, s string) string {
+	if !p {
+		return s
+	}
+	return code + s + ansiReset
+}
+
+// OK は正常・成功を表す文言に使う（例: Linked ラベル、Applied の件数）。
+func (p Palette) OK(s string) string { return p.paint(ansiGreen, s) }
+
+// Warn は要対応だが異常ではない状態に使う（例: Missing / Occupied / Stale、
+// 確認や退避の発生）。
+func (p Palette) Warn(s string) string { return p.paint(ansiYellow, s) }
+
+// Error は構造エラーや失敗に使う（例: ERROR ブロック、Failed）。
+func (p Palette) Error(s string) string { return p.paint(ansiRed, s) }
+
 // ResolveColorEnabled は mode・NO_COLOR 環境変数・fd の TTY 判定から
 // 色を出力すべきかどうかを決定する（spec §11.1、design.md §8）。
 //

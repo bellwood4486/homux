@@ -53,14 +53,14 @@ func newProfileDeleteCmd(flags *globalFlags) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runProfileDelete(cmd, flags.repo, args[0], interactive)
+			return runProfileDelete(cmd, flags, args[0], interactive)
 		},
 	}
 }
 
 // runProfileDelete は spec §12.11 の手順をそのままなぞる。
-func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive bool) error {
-	ws, err := loadWorkspace(repoFlag)
+func runProfileDelete(cmd *cobra.Command, flags *globalFlags, name string, interactive bool) error {
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
@@ -81,11 +81,11 @@ func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive boo
 		Active:   ws.profile,
 	})
 	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 	if err := structuralError(resolutions); err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 
@@ -93,7 +93,7 @@ func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive boo
 	if err != nil {
 		var collision *rewriteCollisionError
 		if errors.As(err, &collision) {
-			fmt.Fprint(cmd.ErrOrStderr(), ui.FormatRewriteCollision(collision.collision))
+			fmt.Fprint(cmd.ErrOrStderr(), ui.FormatRewriteCollision(flags.colorErr, collision.collision))
 			return silentExitError{}
 		}
 		return err
@@ -105,7 +105,7 @@ func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive boo
 	}
 
 	out := cmd.OutOrStdout()
-	ui.RenderDeletePlan(out, plan)
+	ui.RenderDeletePlan(out, flags.colorOut, plan)
 
 	if !interactive {
 		return errors.New(
@@ -122,7 +122,7 @@ func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive boo
 
 	res := exec.DeleteAll(items)
 	if res.Err != nil {
-		ui.RenderDeleteResult(out, ws.env.Repo, plan, res)
+		ui.RenderDeleteResult(out, flags.colorOut, ws.env.Repo, plan, res)
 		return silentExitError{}
 	}
 
@@ -130,7 +130,7 @@ func runProfileDelete(cmd *cobra.Command, repoFlag, name string, interactive boo
 		return err
 	}
 
-	ui.RenderDeleteResult(out, ws.env.Repo, plan, res)
+	ui.RenderDeleteResult(out, flags.colorOut, ws.env.Repo, plan, res)
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -184,6 +185,28 @@ func TestStatusCmd_UnknownActiveProfile_ExitsOneWithDiagnostic(t *testing.T) {
 	}
 }
 
+func TestStatusCmd_ColorAlways_ColorsStderrDiagnosticToo(t *testing.T) {
+	home := evalTempDir(t)
+	repo := evalTempDir(t)
+	xdg := filepath.Join(home, ".config-active-color")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	writeFile(t, filepath.Join(repo, ".homux.toml"), "profiles = [\"work\"]\n")
+	writeFile(t, filepath.Join(xdg, "homux", "config.toml"), "profile = \"worc\"\n")
+
+	cmd := NewRootCmd()
+	var out, errOut bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errOut)
+	cmd.SetArgs([]string{"--repo", repo, "--color", "always", "status"})
+
+	runRoot(cmd)
+
+	if !strings.Contains(errOut.String(), "\x1b[") {
+		t.Fatalf("expected ANSI escapes on stderr with --color always, got:\n%s", errOut.String())
+	}
+}
+
 func TestStatusCmd_NotConfigured_ExitsOne(t *testing.T) {
 	home := evalTempDir(t)
 	t.Setenv("HOME", home)
@@ -231,6 +254,37 @@ func snapshotTree(t *testing.T, root string) map[string]snapshotEntry {
 		t.Fatalf("filepath.Walk(%s): %v", root, err)
 	}
 	return got
+}
+
+func TestStatusCmd_ColorAlways_EmitsAnsiEscapes(t *testing.T) {
+	_, repo := statusFixture(t)
+
+	stdout, _, _ := runStatusCmd(t, repo, "--color", "always")
+
+	if !strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("expected ANSI escapes with --color always, got:\n%s", stdout)
+	}
+}
+
+func TestStatusCmd_ColorNever_NoAnsiEscapes(t *testing.T) {
+	_, repo := statusFixture(t)
+
+	stdout, _, _ := runStatusCmd(t, repo, "--color", "never")
+
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("expected no ANSI escapes with --color never, got:\n%s", stdout)
+	}
+}
+
+func TestStatusCmd_NoColorOverridesColorAlways(t *testing.T) {
+	_, repo := statusFixture(t)
+	t.Setenv("NO_COLOR", "1")
+
+	stdout, _, _ := runStatusCmd(t, repo, "--color", "always")
+
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("expected NO_COLOR to override --color always, got:\n%s", stdout)
+	}
 }
 
 func TestStatusCmd_DoesNotModifyHomeOrRepo(t *testing.T) {

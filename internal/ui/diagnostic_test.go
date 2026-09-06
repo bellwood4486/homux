@@ -16,7 +16,7 @@ func TestFormatResolveError_UnknownProfileWithRepoPath(t *testing.T) {
 	want := "ERROR .claude/settings.json@@worc\n\n" +
 		"  Unknown profile \"worc\".\n" +
 		"  Did you mean \"work\"?\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
@@ -24,7 +24,7 @@ func TestFormatResolveError_UnknownProfileWithRepoPath(t *testing.T) {
 func TestFormatResolveError_UnknownProfileNoSuggestion(t *testing.T) {
 	err := &resolve.UnknownProfileError{RepoPath: "foo@@zzz", Profile: "zzz"}
 	want := "ERROR foo@@zzz\n\n  Unknown profile \"zzz\".\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
@@ -34,7 +34,7 @@ func TestFormatResolveError_UnknownActiveProfile(t *testing.T) {
 	want := "ERROR active profile\n\n" +
 		"  Unknown profile \"worc\".\n" +
 		"  Did you mean \"work\"?\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
@@ -42,7 +42,7 @@ func TestFormatResolveError_UnknownActiveProfile(t *testing.T) {
 func TestFormatResolveError_InvalidSelector(t *testing.T) {
 	err := &resolve.InvalidSelectorError{RepoPath: "foo@@work++personal"}
 	want := "ERROR foo@@work++personal\n\n  Invalid selector syntax.\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
@@ -59,7 +59,7 @@ func TestFormatResolveError_Ambiguous(t *testing.T) {
 		"  Matching sources:\n" +
 		"    foo@@work\n" +
 		"    foo@@work+personal\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
@@ -71,7 +71,7 @@ func TestFormatResolveError_Joined(t *testing.T) {
 	)
 	want := "ERROR a@@work++personal\n\n  Invalid selector syntax.\n\n" +
 		"ERROR b@@zzz\n\n  Unknown profile \"zzz\".\n"
-	if got := FormatResolveError(err); got != want {
+	if got := FormatResolveError(ColorOff, err); got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }

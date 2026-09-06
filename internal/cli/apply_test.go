@@ -84,7 +84,7 @@ func runApplyInteractive(t *testing.T, repo, stdin string, opts applyOptions) (s
 	cmd.SetIn(strings.NewReader(stdin))
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	err = runApply(cmd, repo, opts, true)
+	err = runApply(cmd, &globalFlags{repo: repo}, opts, true)
 	return out.String(), err
 }
 

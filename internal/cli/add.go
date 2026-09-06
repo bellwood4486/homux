@@ -41,7 +41,7 @@ func newAddCmd(flags *globalFlags) *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runAdd(cmd, flags.repo, args, opts, interactive)
+			return runAdd(cmd, flags, args, opts, interactive)
 		},
 	}
 
@@ -52,8 +52,8 @@ func newAddCmd(flags *globalFlags) *cobra.Command {
 
 // runAdd は spec §12.6 の手順をそのままなぞる: 対象を集めて検証し、plan を
 // 見せて確認を取り、確認が得られたら exec.AddAll に委ねる。
-func runAdd(cmd *cobra.Command, repoFlag string, args []string, opts addOptions, interactive bool) error {
-	ws, err := loadWorkspace(repoFlag)
+func runAdd(cmd *cobra.Command, flags *globalFlags, args []string, opts addOptions, interactive bool) error {
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func runAdd(cmd *cobra.Command, repoFlag string, args []string, opts addOptions,
 	}
 
 	out := cmd.OutOrStdout()
-	ui.RenderAddPlan(out, ws.env.Home, items)
+	ui.RenderAddPlan(out, flags.colorOut, ws.env.Home, items)
 
 	if !interactive {
 		return errors.New(
@@ -88,7 +88,7 @@ func runAdd(cmd *cobra.Command, repoFlag string, args []string, opts addOptions,
 	}
 
 	res := exec.AddAll(items)
-	ui.RenderAddResult(out, ws.env.Home, res)
+	ui.RenderAddResult(out, flags.colorOut, ws.env.Home, res)
 	if res.Err != nil {
 		return silentExitError{}
 	}

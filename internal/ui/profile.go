@@ -11,7 +11,7 @@ import (
 // spec §12.7 のレイアウトで w に書き出す。定義順ではなくアルファベット順に
 // 並べる（spec の例が profiles = ["work", "personal"] に対し
 // "personal" を先に表示している）。
-func RenderProfileList(w io.Writer, profiles []string, active string) {
+func RenderProfileList(w io.Writer, pal Palette, profiles []string, active string) {
 	fmt.Fprintln(w, "Profiles:")
 	fmt.Fprintln(w)
 
@@ -38,10 +38,10 @@ func RenderProfileList(w io.Writer, profiles []string, active string) {
 // HOME は switch では変更されない。applyNeeded が true なら desired state との
 // 差異が生じたことを示し、"homux apply" が必要である旨を表示する
 // （spec §12.8、§11.2）。
-func RenderProfileSwitch(w io.Writer, from, to string, applyNeeded bool) {
+func RenderProfileSwitch(w io.Writer, pal Palette, from, to string, applyNeeded bool) {
 	fmt.Fprintf(w, "Active profile: %s -> %s\n\n", profileLabel(from), profileLabel(to))
 	if applyNeeded {
-		fmt.Fprintln(w, `Run "homux apply" to update HOME.`)
+		fmt.Fprintln(w, pal.Warn(`Run "homux apply" to update HOME.`))
 		return
 	}
 	fmt.Fprintln(w, "HOME already matches this profile.")

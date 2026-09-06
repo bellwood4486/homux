@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -97,5 +98,53 @@ func TestResolveColorEnabled_NoColorEmptyValueStillDisables(t *testing.T) {
 	fd := notATerminalFd(t)
 	if ResolveColorEnabled(ColorAlways, fd) {
 		t.Error("NO_COLOR set to empty string must still disable color (presence, not value, matters)")
+	}
+}
+
+func TestPalette_OffReturnsPlainText(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(Palette, string) string
+	}{
+		{"OK", Palette.OK},
+		{"Warn", Palette.Warn},
+		{"Error", Palette.Error},
+	}
+	for _, tt := range tests {
+		if got := tt.fn(ColorOff, "Linked"); got != "Linked" {
+			t.Errorf("%s(ColorOff, %q) = %q, want unchanged", tt.name, "Linked", got)
+		}
+	}
+}
+
+func TestPalette_OnWrapsWithAnsiAndReset(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(Palette, string) string
+	}{
+		{"OK", Palette.OK},
+		{"Warn", Palette.Warn},
+		{"Error", Palette.Error},
+	}
+	for _, tt := range tests {
+		got := tt.fn(ColorOn, "Linked")
+		if !strings.Contains(got, "Linked") {
+			t.Errorf("%s(ColorOn, %q) = %q, want it to still contain the original text", tt.name, "Linked", got)
+		}
+		if !strings.HasPrefix(got, "\x1b[") {
+			t.Errorf("%s(ColorOn, %q) = %q, want it to start with an ANSI escape", tt.name, "Linked", got)
+		}
+		if !strings.HasSuffix(got, ansiReset) {
+			t.Errorf("%s(ColorOn, %q) = %q, want it to end with the ANSI reset", tt.name, "Linked", got)
+		}
+	}
+}
+
+func TestPalette_DistinctColorsPerSeverity(t *testing.T) {
+	ok := ColorOn.OK("x")
+	warn := ColorOn.Warn("x")
+	err := ColorOn.Error("x")
+	if ok == warn || ok == err || warn == err {
+		t.Errorf("OK/Warn/Error must use distinct ANSI codes, got %q, %q, %q", ok, warn, err)
 	}
 }

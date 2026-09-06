@@ -18,7 +18,7 @@ func runDeleteInteractive(t *testing.T, repo, name, stdin string) (stdout string
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetIn(strings.NewReader(stdin))
-	err = runProfileDelete(cmd, repo, name, true)
+	err = runProfileDelete(cmd, &globalFlags{repo: repo}, name, true)
 	return out.String(), err
 }
 
@@ -268,7 +268,7 @@ func TestProfileDelete_RequiresInteractiveTerminal(t *testing.T) {
 	cmd.SetErr(&out)
 	cmd.SetIn(strings.NewReader("y\n"))
 
-	err := runProfileDelete(cmd, repo, "work", false)
+	err := runProfileDelete(cmd, &globalFlags{repo: repo}, "work", false)
 	if err == nil {
 		t.Fatal("err = nil, want a non-interactive error")
 	}

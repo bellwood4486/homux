@@ -57,7 +57,7 @@ type RenameCollision struct {
 // Files と Selectors を分けるのは、後者が「ファイルを消さずに selector の
 // 一部だけを置き換える」ことを確認の場で見せるためである。矢印の桁は
 // 両方の節を通して揃える（spec §12.10 の例がそうなっている）。
-func RenderRenamePlan(w io.Writer, p RenamePlan) {
+func RenderRenamePlan(w io.Writer, pal Palette, p RenamePlan) {
 	fmt.Fprintf(w, "Rename profile %q -> %q\n\n", p.From, p.To)
 
 	fmt.Fprintln(w, "Profile definition:")
@@ -101,9 +101,11 @@ func arrowWidth(groups ...[]RenameLine) int {
 //
 // この出力が出たとき repository は 1 バイトも変更されていない（INV-15）。
 // 「どこまで進んだか」を書かないのはそのためである。
-func FormatRenameCollision(c RenameCollision) string {
+//
+// pal が ColorOff なら出力は色を持たない従来通りの文字列である。
+func FormatRenameCollision(pal Palette, c RenameCollision) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "ERROR rename collision\n\n")
+	fmt.Fprintf(&b, "%s\n\n", pal.Error("ERROR rename collision"))
 	fmt.Fprintf(&b, "  %s\n", c.Line.From)
 	fmt.Fprintf(&b, "  -> %s\n\n", c.Line.To)
 	fmt.Fprintf(&b, "%s\n", collisionReason(c.Kind))
@@ -122,9 +124,9 @@ func collisionReason(k CollisionKind) string {
 // 成功時に "homux apply" を促さないのは、rename が repo 上の名前だけを変え、
 // HOME に配置される内容（target と中身）を変えないためである。profile use と
 // 違い、desired state は rename の前後で同一である。
-func RenderRenameResult(w io.Writer, repo string, p RenamePlan, res exec.RenameResult) {
+func RenderRenameResult(w io.Writer, pal Palette, repo string, p RenamePlan, res exec.RenameResult) {
 	if res.Err != nil {
-		renderRenameFailure(w, repo, p, res)
+		renderRenameFailure(w, pal, repo, p, res)
 		return
 	}
 
@@ -142,10 +144,10 @@ func RenderRenameResult(w io.Writer, repo string, p RenamePlan, res exec.RenameR
 // ここに来るのは事前検証（INV-15）を通り抜けた想定外の I/O エラーだけである。
 // ロールバックはしないため、利用者が手で終わらせるための手順を示す。
 // .homux.toml はファイルの後に書くため、この時点では必ず旧名のままである。
-func renderRenameFailure(w io.Writer, repo string, p RenamePlan, res exec.RenameResult) {
+func renderRenameFailure(w io.Writer, pal Palette, repo string, p RenamePlan, res exec.RenameResult) {
 	fmt.Fprintf(w, "Renamed %s before failing.\n\n", countPhrase(len(res.Applied), "file", "files"))
 
-	fmt.Fprintln(w, "Failed:")
+	fmt.Fprintln(w, pal.Error("Failed:"))
 	fmt.Fprintf(w, "  %s\n", displayRepoPath(repo, res.Failed.From))
 	fmt.Fprintf(w, "  %s\n", res.Err)
 

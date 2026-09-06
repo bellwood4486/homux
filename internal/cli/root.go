@@ -5,6 +5,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -38,6 +39,12 @@ func (silentExitError) Error() string { return "" }
 type globalFlags struct {
 	repo     string
 	colorRaw string
+
+	// colorOut / colorErr は PersistentPreRunE で解決される。stdout と
+	// stderr は別の fd であり、リダイレクトで一方だけ非 TTY になりうるため
+	// （例: "homux status 2> file"）、1 つの bool にまとめない。
+	colorOut ui.Palette
+	colorErr ui.Palette
 }
 
 // NewRootCmd は homux のルートコマンドを構築する。サブコマンドは後から AddCommand で足せる。
@@ -51,9 +58,12 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 		Version:       buildVersion(),
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-			if _, err := ui.ParseColorMode(flags.colorRaw); err != nil {
+			mode, err := ui.ParseColorMode(flags.colorRaw)
+			if err != nil {
 				return newUsageError(err)
 			}
+			flags.colorOut = ui.Palette(ui.ResolveColorEnabled(mode, int(os.Stdout.Fd())))
+			flags.colorErr = ui.Palette(ui.ResolveColorEnabled(mode, int(os.Stderr.Fd())))
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
