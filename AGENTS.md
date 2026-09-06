@@ -3,9 +3,9 @@
 複数のマシン・プロファイルで dotfiles を管理する Go CLI。
 本質は **HOME mirror resolver + symlink manager + linter** であり、テンプレートエンジンではない。
 
-現在の状態: **`docs/design.md` §9 の Phase 1〜5（項目 1〜16）は実装済み。**
 全サブコマンド（`status` / `explain` / `apply` / `init` / `add` / `profile list|use|create|rename|delete`）が動く。
 以降の作業は新機能追加より、診断・可視性・安全性の強化が中心になる（`docs/spec.md` §16）。
+残タスクと進捗は Linear が持つ（後述「実装順序」）。
 
 ---
 
