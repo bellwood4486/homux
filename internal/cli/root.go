@@ -75,6 +75,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newExplainCmd(flags))
 	root.AddCommand(newApplyCmd(flags))
 	root.AddCommand(newAddCmd(flags))
+	root.AddCommand(newProfileCmd(flags))
 
 	return root
 }
