@@ -19,3 +19,4 @@
 | [0009](0009-tty-detection-library.md) | TTY 判定に golang.org/x/term を採用する |
 | [0010](0010-plain-prompts-for-init.md) | `init` の対話を素のプロンプトで実装し、huh の導入を遅らせる |
 | [0011](0011-huh-for-fork-selection-only.md) | `profile create` の選択画面にだけ huh を使い、素のプロンプトと同居させる |
+| [0012](0012-backup-by-rename.md) | 退避は rename 一本とし、退避先は plan が決める（衝突時は停止） |

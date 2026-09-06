@@ -129,11 +129,13 @@ type Plan struct {
 func (p Plan) Errors() int      // spec §12.4 のスキップ件数 = exit code 1 の根拠
 
 type Action struct {
-    Kind    ActionKind // CreateSymlink / Relink / ReplaceTarget / RemoveStaleSymlink
-    Target  string     // 絶対パス
-    LinkTo  string     // 絶対パス。RemoveStaleSymlink では空
-    Backup  string     // ReplaceTarget のときの退避先。ReplaceTarget では必ず非空（INV-13）
-    Confirm bool       // 実行前に確認が必要か
+    Kind    ActionKind  // CreateSymlink / Relink / ReplaceTarget / RemoveStaleSymlink
+    Target  string      // 絶対パス
+    LinkTo  string      // これから張るリンク先の絶対パス。RemoveStaleSymlink では空
+    From    string      // 今のリンク先の絶対パス。Relink と、symlink の ReplaceTarget でのみ非空
+    Current CurrentKind // Target が今何であるか。File / Dir / Symlink
+    Backup  string      // ReplaceTarget のときの退避先。ReplaceTarget では必ず非空（INV-13）
+    Confirm bool        // 実行前に確認が必要か
 }
 ```
 
@@ -144,6 +146,10 @@ type Action struct {
 `Action` に「何もしない」を表す `Skip` は無い。理由を持たない `Skip` を並べても `ui` は結局 `TargetState` を引き直すことになり、`Ignored` は HOME target を持たないため `Action` と 1:1 に対応させることもできない。何もしない target は `Plan.States` にのみ現れる。
 
 `plan` は `Action` を作る直前に、`Target` が repo 配下に解決されないことを検査する。`inspect` の HOME 走査は repo が `$HOME` 配下にある場合に repo 内へ降りうるため、ここが INV-14 を構造として守る最後の関門になる。違反した状態は `Action` を生成せず `KindError` に落とす。
+
+`From` と `Current` は `exec` が使わない。`ui` が確認プロンプトの文言（spec §12.4 の 3 種類）と dry-run の注記（spec §12.5）を決めるためだけに存在する。`ui` に `TargetState` を引き直させない — `Action` と `TargetState` の対応付けを `ui` に持たせると、同じ突き合わせが `RenderPlan` と `ConfirmAction` に二重に現れる。`exec` は `Kind` / `Target` / `LinkTo` / `Backup` だけを見る。
+
+退避先を決めるのは `plan` である。`exec` は `Backup` が既に存在すれば停止するだけで、空いている名前を探さない（ADR 0012）。`plan` が `os` を持たない以上、退避先の実在検査は `exec` にしか書けず、`apply --dry-run` は退避先の衝突を検出できない。この非対称性は spec §12.5 に「dry-run は plan が見える範囲を示す」として現れている。
 
 退避先の timestamp に使う時刻は `Input.Now` で受け取る。`plan` は `time.Now()` を呼ばない。`MkdirAll`（spec §4.1）は独立した `Action` にせず、`CreateSymlink` / `Relink` / `ReplaceTarget` の暗黙の一部として `exec` が行う。
 
