@@ -3,7 +3,9 @@
 複数のマシン・プロファイルで dotfiles を管理する Go CLI。
 本質は **HOME mirror resolver + symlink manager + linter** であり、テンプレートエンジンではない。
 
-現在の状態: **設計完了・実装未着手**（`main.go` は空のスタブ。実装は `docs/design.md` §9 の Phase 1 から始める）
+現在の状態: **`docs/design.md` §9 の Phase 1〜5（項目 1〜16）は実装済み。**
+全サブコマンド（`status` / `explain` / `apply` / `init` / `add` / `profile list|use|create|rename|delete`）が動く。
+以降の作業は新機能追加より、診断・可視性・安全性の強化が中心になる（`docs/spec.md` §16）。
 
 ---
 
@@ -14,10 +16,26 @@
 | `docs/spec.md` | **現在形** | 何を作るか。要求・仕様・CLI 定義・不変条件 |
 | `docs/design.md` | **現在形** | どう作るか。アーキテクチャ・パッケージ境界・型・実装順序 |
 | `docs/adr/` | **履歴** | なぜその選択をしたか。却下した案とその理由 |
+| `README.md` | **現在形** | 利用者向け。仕様を変えたらここも追随させる |
+
+`CLAUDE.md` は `AGENTS.md` への symlink である。編集は必ず `AGENTS.md` に対して行うこと。
 
 **現在形の 2 文書には「今の正解」だけが書かれている。** 検討過程・却下案・過去の仕様は書かない。書きたくなったら ADR に回すこと。
 
 実装に着手する前に、そのタスクに対応する `docs/spec.md` の章と `docs/design.md` の該当節を読むこと。
+
+---
+
+## パッケージの地図
+
+| パッケージ | 責務 |
+|---|---|
+| `selector` / `config` / `scan` / `resolve` / `plan` | 純粋。FS に触れない解決ロジック |
+| `inspect` | HOME の実状態を読み、desired と突き合わせて `TargetState` を作る |
+| `exec` | FS を変更してよい唯一の場所（symlink / 退避 / move / rewrite） |
+| `env` | `Home` / `Repo` の持ち回り。`os.UserHomeDir()` を直接呼ばない |
+| `ui` | 出力整形と対話。`huh` と色ライブラリはここだけ |
+| `cli` | cobra のコマンド定義。`cobra` を知ってよい唯一の場所 |
 
 ---
 
@@ -79,6 +97,9 @@ just setup        # + git hooks の導入
 just              # = just check（fmt-check → vet → lint → test）
 just fix          # check が落ちたらまずこれ（自動修正できるものを直す）
 just test-one ./internal/selector   # 反復ループ用。パッケージを絞る
+just test-race    # symlink 操作の並行性を疑うとき
+just cover        # カバレッジの総計
+just build        # ./homux を作る
 ```
 
 - ツールのバージョンは `mise.toml` が唯一の正本である。`go install ...@latest` を使わないこと
