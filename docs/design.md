@@ -191,7 +191,7 @@ repo path は入力時に絶対パスへ展開し、`filepath.EvalSymlinks` で�
 | 用途 | ライブラリ | 備考 |
 |---|---|---|
 | CLI フレームワーク | `github.com/spf13/cobra` | サブコマンド階層と shell 補完生成のため |
-| 対話 UI | `github.com/charmbracelet/huh` | MultiSelect が要る `profile create` で導入する。`internal/ui` に閉じ込める |
+| 対話 UI | `github.com/charmbracelet/huh` | `profile create` の fork 対象選択（MultiSelect）にだけ使う。`internal/ui` に閉じ込める |
 | glob | `github.com/bmatcuk/doublestar/v4` | `ignore` の `**` サポート |
 | TOML 読み取り | `github.com/pelletier/go-toml/v2` | 書き込みは §6 参照 |
 | TTY 判定 | `golang.org/x/term` | `--color auto` の非 TTY 検出用（ADR 0009） |
@@ -202,7 +202,9 @@ Go は 1.27 以降。ライセンスは MIT。
 
 対話は既定で `internal/ui` の素のプロンプト（`ui.Prompter`）で行う。`apply` の確認（`[y/N]`）も `init` の 3 つの問い（パス入力・`[y/N]`・profile の単一選択）も 1 問 1 答であり、spec のプロンプト例をそのまま出せて、出力が丸ごと検証できることを取る。
 
-**huh は `profile create` の migration wizard で MultiSelect が要る時点まで導入しない**（ADR 0010）。go.mod に入るのもそのときである。
+**huh を使うのは `profile create` の fork 対象選択だけである**（ADR 0010、ADR 0011）。`internal/ui/select.go` がその唯一の場所であり、`profile create` 自身の `Apply this migration? [y/N]` を含め、他のすべての対話は素のプロンプトのままである。
+
+huh は自前で端末を掴むため、選択画面だけは `cmd.SetIn` / `cmd.SetOut` 越しに検証できない。`internal/cli` は選択を関数値として受け取り、テストはそれを差し替えて選択画面以外の全経路を検証する。
 
 ### 5.1 バージョン表示
 
