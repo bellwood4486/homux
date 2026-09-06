@@ -330,7 +330,7 @@ foo@@work+personal     work と personal の両方
 |---|---|
 | **Linked** | 期待どおりの symlink が存在する |
 | **Missing** | desired source は存在するが HOME に target がない |
-| **Occupied** | desired source はあるが、HOME target が管理外のファイル／ディレクトリで占有されている |
+| **Occupied** | desired source はあるが、HOME target が管理外のファイル・ディレクトリ・symlink で占有されている |
 | **Stale** | HOME 上に管理済み symlink が残っているが、現在の desired state と一致しない |
 | **Ignored** | repository path が ignore ルールで対象外 |
 | **Inactive** | profile-specific source だが、現在の active profile では選択されていない |
@@ -570,12 +570,22 @@ HOME を desired state に合わせる。**ファイルの生成・レンダリ�
 | 状態 | 動作 |
 |---|---|
 | Missing | 確認なしで symlink を作成する |
-| Occupied | 確認のうえ、既存ファイルを退避してから symlink を作成する |
+| Occupied | 確認のうえ、既存の target を退避してから symlink を作成する |
 | Stale (種類1) | 確認のうえ relink する |
 | Stale (種類2) | 確認のうえ symlink を削除する |
 | Error | **その target をスキップし、残りの適用を続行する**。最後にスキップ件数を表示し、終了コード `1` を返す |
 
-**Occupied の退避**: 既存ファイルは同一ディレクトリに `<name>.homux-bak.<timestamp>` として退避してから symlink を張る。プロンプトに退避先を明示する。退避先が既に存在する場合はエラーで停止する。
+**Occupied の退避**: 既存の target は同一ディレクトリに `<name>.homux-bak.<timestamp>` へ rename して退避してから symlink を張る。プロンプトに退避先を明示する。
+
+退避の対象は 3 種類あり、いずれも同じ規則で退避する。
+
+| Current | 退避されるもの | プロンプトの見出し |
+|---|---|---|
+| 通常ファイル | ファイルそのもの | `Existing file detected:` |
+| ディレクトリ | ディレクトリごと（中身を含む） | `Existing directory detected:` |
+| repo 外を指す symlink | symlink 本体のみ。リンク先の実体は動かさない | `Existing symlink detected:` |
+
+rename であるため、ディレクトリの中身がどれだけ多くても退避の費用は変わらず、内容もパーミッションもそのまま残る。
 
 ```text
 Existing file detected:
@@ -592,11 +602,26 @@ Existing file detected:
 Replace it? [y/N]:
 ```
 
+target が symlink の場合は、`target` の次に現在のリンク先を `current` として出す。何が退避されるのかは `y` を打つ判断そのものであるため、見出しと項目は上の表に従って target の種類ごとに変える。
+
+**退避先の衝突**: timestamp は秒単位である。退避先が既に存在する場合は、**その target を変更せずエラーで停止する**（後述の「実行時の失敗」）。空いている名前を探して退避先をずらすことはしない。退避先は plan が決めるものであり、dry-run が示した退避先と実際の退避先は常に一致する（ADR 0012）。
+
+**Stale (種類1) の relink**: プロンプトはリンク先が「どこから どこへ」変わるのかを示す。relink は「リンク先が変わった」ことそのものが操作の理由であるため、新しいリンク先だけでは確認の材料にならない。
+
 `n` を選んだ場合、target は変更されず、その選択は保存されない。conflict が残っている限り次回の `apply` でも再度確認する（INV-12）。
 
 **削除するのは symlink のみである。** 通常の `apply` が repository 内の source file を削除することはない（INV-14）。
 
-**部分適用**: 途中で失敗した場合はその時点で停止し、「ここまで適用済み / ここから未適用」を報告する。ロールバックは行わない。`apply` は冪等であり、再実行すれば収束する。
+**「スキップして続行」と「停止」の関係**: apply が正常に完了しない理由には 2 つの層があり、扱いが異なる。
+
+| 層 | いつ判明するか | 動作 |
+|---|---|---|
+| **Error 状態**（unknown profile / ambiguous / selector 構文エラー / target が repository 配下） | 適用を始める前。そもそも操作を組み立てられない | その target には何もせず、残りの適用を続行する。最後にスキップ件数を表示する |
+| **実行時の失敗**（退避先の衝突、rename の失敗、削除対象が symlink でなかった等） | 実際に HOME を触った瞬間 | その時点で停止する |
+
+どちらも終了コードは `1` である（§11.3）。前者は最初から適用の対象になりえない target を除いているだけなのに対し、後者は既に HOME を変更し始めた後であり、続行すると「何が適用され、何が適用されなかったか」が読めなくなる。退避先の衝突は後者である。
+
+**部分適用**: 実行時の失敗が起きた場合はその時点で停止し、「ここまで適用済み / ここから未適用」を報告する。ロールバックは行わない。`apply` は冪等であり、再実行すれば収束する。
 
 **空ディレクトリ**: stale symlink を削除した結果、親ディレクトリが空になっても削除しない。
 
@@ -610,12 +635,12 @@ Would create symlink:
   -> ~/dotfiles/.config/foo/config@@work
 
 Would ask before replacing:
-  ~/.claude/settings.json
+  ~/.claude/settings.json (directory)
   -> ~/dotfiles/.claude/settings.json@@work
 
 Would relink:
   ~/.vimrc
-  -> ~/dotfiles/.vimrc@@work
+  ~/dotfiles/.vimrc -> ~/dotfiles/.vimrc@@work
 
 Would remove stale symlink:
   ~/.config/old/config
@@ -625,9 +650,15 @@ No changes made.
 
 同じ種類の操作は 1 つの見出しにまとめる。見出しの順序は上記で固定する。
 
+`Would ask before replacing:` では、target がディレクトリまたは repo 外を指す symlink のときだけ `(directory)` / `(symlink)` を添える。通常ファイルには何も添えない。注記は「驚きのある退避」を先に見せるためにあり、既定の期待である通常ファイルに付けても行が伸びるだけだからである。
+
+`Would relink:` はリンク先が「どこから どこへ」変わるのかを 1 行で示す。
+
 `apply` も実行前にこの同じブロックを表示する。最初の確認を出す前に全体像を示すためであり、`--yes` の非対話実行でも「何をしたか」がログに残る。
 
 repository に構造エラーがある場合は、`status` と同じ診断ブロックを出して終了コード `1` を返す（§11.3 はコマンドに依らない）。何も実行しないことは終了コードを `0` にする理由にならない。
+
+**dry-run が示すのは plan が見える範囲である。** 実際に HOME を触ってはじめて分かる失敗（退避先の衝突など）は予告しない。dry-run が何も問題を示さなくても、`apply` が実行時の失敗で途中停止することはありうる（§12.4）。
 
 独立した `homux dry-run` コマンドは作らない。
 
