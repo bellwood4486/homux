@@ -17,15 +17,41 @@ import (
 type planGroup struct {
 	kind   plan.ActionKind
 	header string
-	// linkTo は "-> <desired>" を添えるか。削除だけがリンク先を持たない。
-	linkTo bool
+	// note は target 行に添える注記。空なら添えない。
+	note func(plan.Action) string
+	// body は target 行に続く行。nil なら target 行だけを出す。
+	body func(home string, a plan.Action) string
 }
 
 var planGroups = []planGroup{
-	{plan.CreateSymlink, "Would create symlink:", true},
-	{plan.ReplaceTarget, "Would ask before replacing:", true},
-	{plan.Relink, "Would relink:", true},
-	{plan.RemoveStaleSymlink, "Would remove stale symlink:", false},
+	{plan.CreateSymlink, "Would create symlink:", nil, desiredLine},
+	{plan.ReplaceTarget, "Would ask before replacing:", currentKindNote, desiredLine},
+	{plan.Relink, "Would relink:", nil, transitionLine},
+	{plan.RemoveStaleSymlink, "Would remove stale symlink:", nil, nil},
+}
+
+// desiredLine はこれから張るリンク先を示す。
+func desiredLine(home string, a plan.Action) string {
+	return "  -> " + displayAbsPath(home, a.LinkTo)
+}
+
+// transitionLine はリンク先が「どこから どこへ」変わるのかを 1 行で示す
+// （spec §12.5）。新しいリンク先だけでは relink の確認の材料にならない。
+func transitionLine(home string, a plan.Action) string {
+	return "  " + displayAbsPath(home, a.From) + " -> " + displayAbsPath(home, a.LinkTo)
+}
+
+// currentKindNote は退避される target の種類を注記する。注記は「驚きのある退避」を
+// 先に見せるためにあり、既定の期待である通常ファイルには添えない（spec §12.5）。
+func currentKindNote(a plan.Action) string {
+	switch a.Current {
+	case inspect.CurrentDir:
+		return " (directory)"
+	case inspect.CurrentSymlink:
+		return " (symlink)"
+	default:
+		return ""
+	}
 }
 
 // RenderPlan は actions を種類ごとにまとめて w に書き出す。各ブロックの後ろには
@@ -46,9 +72,13 @@ func RenderPlan(w io.Writer, home string, actions []plan.Action) {
 		}
 		fmt.Fprintln(w, g.header)
 		for _, a := range matched {
-			fmt.Fprintf(w, "  %s\n", displayAbsPath(home, a.Target))
-			if g.linkTo {
-				fmt.Fprintf(w, "  -> %s\n", displayAbsPath(home, a.LinkTo))
+			note := ""
+			if g.note != nil {
+				note = g.note(a)
+			}
+			fmt.Fprintf(w, "  %s%s\n", displayAbsPath(home, a.Target), note)
+			if g.body != nil {
+				fmt.Fprintln(w, g.body(home, a))
 			}
 		}
 		fmt.Fprintln(w)

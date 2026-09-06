@@ -307,3 +307,98 @@ func TestAll_DoesNotMutateInputStates(t *testing.T) {
 		t.Errorf("入力の Err が %v に書き換えられた", in.States[0].Err)
 	}
 }
+
+// docs/design.md §3: Relink は「どこから どこへ」を ui が出せるよう From を持つ。
+func TestAll_RelinkCarriesCurrentLinkTarget(t *testing.T) {
+	got := planFor(inspect.TargetState{
+		Resolution: selected(".vimrc", ".vimrc@@work"),
+		Kind:       inspect.KindStale,
+		Current: inspect.Current{
+			Kind:    inspect.CurrentSymlink,
+			Link:    repoPath(t, ".vimrc"),
+			LinkAbs: repoPath(t, ".vimrc"),
+			Managed: true,
+		},
+	})
+
+	a := got.Actions[0]
+	if want := repoPath(t, ".vimrc"); a.From != want {
+		t.Errorf("From = %q, want %q", a.From, want)
+	}
+	if a.Current != inspect.CurrentSymlink {
+		t.Errorf("Current = %v, want CurrentSymlink", a.Current)
+	}
+}
+
+// spec §12.4: repo 外を指す symlink の退避は、現在のリンク先を示して確認する。
+func TestAll_OccupiedSymlinkCarriesCurrentLinkTarget(t *testing.T) {
+	got := planFor(inspect.TargetState{
+		Resolution: selected(".vimrc", ".vimrc@@work"),
+		Kind:       inspect.KindOccupied,
+		Current: inspect.Current{
+			Kind:    inspect.CurrentSymlink,
+			Link:    "/opt/elsewhere/.vimrc",
+			LinkAbs: "/opt/elsewhere/.vimrc",
+		},
+	})
+
+	a := got.Actions[0]
+	if want := "/opt/elsewhere/.vimrc"; a.From != want {
+		t.Errorf("From = %q, want %q", a.From, want)
+	}
+	if a.Current != inspect.CurrentSymlink {
+		t.Errorf("Current = %v, want CurrentSymlink", a.Current)
+	}
+}
+
+// symlink 以外の退避には「現在のリンク先」が無い（docs/design.md §3）。
+func TestAll_OccupiedDirHasNoFrom(t *testing.T) {
+	got := planFor(inspect.TargetState{
+		Resolution: selected(".claude", ".claude@@work"),
+		Kind:       inspect.KindOccupied,
+		Current:    inspect.Current{Kind: inspect.CurrentDir},
+	})
+
+	a := got.Actions[0]
+	if a.From != "" {
+		t.Errorf("From = %q, want empty", a.From)
+	}
+	if a.Current != inspect.CurrentDir {
+		t.Errorf("Current = %v, want CurrentDir", a.Current)
+	}
+}
+
+// CreateSymlink / RemoveStaleSymlink も Current を持つ（ui の注記の判断材料）。
+func TestAll_CurrentKindIsCarriedForEveryAction(t *testing.T) {
+	got := planFor(
+		inspect.TargetState{
+			Resolution: selected(".zshrc", ".zshrc"),
+			Kind:       inspect.KindMissing,
+			Current:    inspect.Current{Kind: inspect.CurrentAbsent},
+		},
+		inspect.TargetState{
+			Resolution: absent(".config/old/config"),
+			Kind:       inspect.KindStale,
+			Current: inspect.Current{
+				Kind:    inspect.CurrentSymlink,
+				Link:    repoPath(t, ".config/old/config"),
+				LinkAbs: repoPath(t, ".config/old/config"),
+				Managed: true,
+			},
+		},
+	)
+
+	if got.Actions[0].Current != inspect.CurrentAbsent {
+		t.Errorf("CreateSymlink Current = %v, want CurrentAbsent", got.Actions[0].Current)
+	}
+	if got.Actions[0].From != "" {
+		t.Errorf("CreateSymlink From = %q, want empty", got.Actions[0].From)
+	}
+	if got.Actions[1].Current != inspect.CurrentSymlink {
+		t.Errorf("RemoveStaleSymlink Current = %v, want CurrentSymlink", got.Actions[1].Current)
+	}
+	// 削除は「今どこを指しているか」を操作の理由にしない（docs/design.md §3）。
+	if got.Actions[1].From != "" {
+		t.Errorf("RemoveStaleSymlink From = %q, want empty", got.Actions[1].From)
+	}
+}

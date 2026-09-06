@@ -56,7 +56,7 @@ func wantApplyPlan(repo string) string {
 		"\n" +
 		"Would relink:\n" +
 		"  ~/.vimrc\n" +
-		"  -> " + repo + "/.vimrc@@work\n" +
+		"  " + repo + "/.vimrc -> " + repo + "/.vimrc@@work\n" +
 		"\n" +
 		"Would remove stale symlink:\n" +
 		"  ~/.config/orphan\n" +
