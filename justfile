@@ -51,3 +51,7 @@ setup:
     mise install
     lefthook install
     go mod download
+
+# リリースの下見。dist/ に成果物を作るだけで、tag も push も作らない
+release-dry:
+    goreleaser release --snapshot --clean

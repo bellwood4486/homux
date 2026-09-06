@@ -100,6 +100,7 @@ just test-one ./internal/selector   # 反復ループ用。パッケージを絞
 just test-race    # symlink 操作の並行性を疑うとき
 just cover        # カバレッジの総計
 just build        # ./homux を作る
+just release-dry  # GoReleaser の下見。dist/ に成果物を作るだけ
 ```
 
 - ツールのバージョンは `mise.toml` が唯一の正本である。`go install ...@latest` を使わないこと
@@ -109,6 +110,7 @@ just build        # ./homux を作る
 - `main.go` はルート直下（`cmd/` は使わない。go.dev の "Basic command" パターン）
 - ファイルシステムを interface で抽象化しない。テストは `t.TempDir()` 上の実ファイル・実 symlink で行う
 - 依存ライブラリの追加は ADR 0007 で決定済みの事項である。`go get` で独断に追加せず、まず相談すること
+- リリースは `git tag vX.Y.Z && git push origin vX.Y.Z` が起点。タグ push で release workflow が走る（ADR 0013）
 
 ### 実装順序
 

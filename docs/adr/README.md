@@ -20,3 +20,4 @@
 | [0010](0010-plain-prompts-for-init.md) | `init` の対話を素のプロンプトで実装し、huh の導入を遅らせる |
 | [0011](0011-huh-for-fork-selection-only.md) | `profile create` の選択画面にだけ huh を使い、素のプロンプトと同居させる |
 | [0012](0012-backup-by-rename.md) | 退避は rename 一本とし、退避先は plan が決める（衝突時は停止） |
+| [0013](0013-goreleaser-distribution.md) | 配布は GoReleaser で行い、GitHub Releases にバイナリと provenance を出す |

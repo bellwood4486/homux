@@ -1,0 +1,79 @@
+# homux の配布設定（docs/adr/0013-goreleaser-distribution.md）。
+#
+# 手元での下見は `just release-dry`。
+# 実際のリリースは `git push origin vX.Y.Z` を起点に
+# .github/workflows/release.yml が実行する。
+
+version: 2
+
+project_name: homux
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: homux
+    main: .
+    binary: homux
+    env:
+      - CGO_ENABLED=0
+    # Windows は対象外。os.Symlink が管理者権限か開発者モードを要求するため。
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    # ldflags を正本とする理由は internal/cli/version.go のコメントを見ること。
+    # GoReleaser の .Version は先頭の "v" を落とすため、ここで戻す。
+    ldflags:
+      - -s -w
+      - -X github.com/bellwood4486/homux/internal/cli.ldVersion=v{{ .Version }}
+      - -X github.com/bellwood4486/homux/internal/cli.ldCommit={{ .FullCommit }}
+
+archives:
+  - id: homux
+    ids:
+      - homux
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+# Conventional Commits が既に効いているので、コミットからリリースノートを組み立てる。
+# CHANGELOG.md は持たない。
+changelog:
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Bug fixes
+      regexp: '^fix(\(.+\))?!?:'
+      order: 1
+    - title: Others
+      order: 99
+  filters:
+    exclude:
+      - '^docs(\(.+\))?:'
+      - '^test(\(.+\))?:'
+      - '^chore(\(.+\))?:'
+      - '^ci(\(.+\))?:'
+      - '^refactor(\(.+\))?:'
+      - '^style(\(.+\))?:'
+      - '^Merge '
+
+release:
+  draft: false
+  prerelease: auto
