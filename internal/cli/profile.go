@@ -29,6 +29,7 @@ func newProfileCmd(flags *globalFlags) *cobra.Command {
 	cmd.AddCommand(newProfileCreateCmd(flags))
 	cmd.AddCommand(newProfileUseCmd(flags))
 	cmd.AddCommand(newProfileRenameCmd(flags))
+	cmd.AddCommand(newProfileDeleteCmd(flags))
 
 	return cmd
 }
