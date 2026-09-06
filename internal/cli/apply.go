@@ -30,7 +30,7 @@ func newApplyCmd(flags *globalFlags) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runApply(cmd, flags.repo, opts, interactive)
+			return runApply(cmd, flags, opts, interactive)
 		},
 	}
 
@@ -45,15 +45,15 @@ func newApplyCmd(flags *globalFlags) *cobra.Command {
 //
 // interactive は「対話 UI を起動してよいか」であり、呼び出し側が決める。
 // 実際の CLI では stdin / stdout の TTY 判定がそれを決める（spec §11.4）。
-func runApply(cmd *cobra.Command, repoFlag string, opts applyOptions, interactive bool) error {
-	ws, _, p, err := buildPlan(cmd, repoFlag)
+func runApply(cmd *cobra.Command, flags *globalFlags, opts applyOptions, interactive bool) error {
+	ws, _, p, err := buildPlan(cmd, flags)
 	if err != nil {
 		return err
 	}
 	out := cmd.OutOrStdout()
 
 	if opts.dryRun {
-		ui.RenderDryRun(out, ws.env.Home, p)
+		ui.RenderDryRun(out, flags.colorOut, ws.env.Home, p)
 		if p.Errors() > 0 {
 			return silentExitError{}
 		}
@@ -62,7 +62,7 @@ func runApply(cmd *cobra.Command, repoFlag string, opts applyOptions, interactiv
 
 	// 最初の確認を出す前に全体像を見せる。--yes の非対話実行でも
 	// 「何をしたか」がログに残る。
-	ui.RenderPlan(out, ws.env.Home, p.Actions)
+	ui.RenderPlan(out, flags.colorOut, ws.env.Home, p.Actions)
 
 	confirm, err := confirmFunc(cmd, ws.env.Home, p.Actions, opts, interactive)
 	if err != nil {
@@ -70,7 +70,7 @@ func runApply(cmd *cobra.Command, repoFlag string, opts applyOptions, interactiv
 	}
 
 	res := exec.Apply(p.Actions, confirm)
-	ui.RenderApplyResult(out, ws.env.Home, res, p)
+	ui.RenderApplyResult(out, flags.colorOut, ws.env.Home, res, p)
 
 	// 部分適用で終わった場合と、Action を作れなかった Error が残っている場合の
 	// どちらも終了コード 1 である（spec §11.3 / §12.4）。

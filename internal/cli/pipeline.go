@@ -25,8 +25,8 @@ import (
 // resolve が repository 全体の構造エラー（unknown profile / invalid selector）
 // を返した場合は、その場で診断を stderr へ書いて silentExitError を返す
 // （spec §10 の整形済み出力に汎用の "Error: ..." を重ねないため）。
-func buildPlan(cmd *cobra.Command, repoFlag string) (*workspace, *scan.Result, plan.Plan, error) {
-	ws, err := loadWorkspace(repoFlag)
+func buildPlan(cmd *cobra.Command, flags *globalFlags) (*workspace, *scan.Result, plan.Plan, error) {
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return nil, nil, plan.Plan{}, err
 	}
@@ -42,7 +42,7 @@ func buildPlan(cmd *cobra.Command, repoFlag string) (*workspace, *scan.Result, p
 		Active:   ws.profile,
 	})
 	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return nil, nil, plan.Plan{}, silentExitError{}
 	}
 

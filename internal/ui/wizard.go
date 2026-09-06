@@ -103,19 +103,19 @@ const repoFileName = ".homux.toml"
 
 // RenderRejectedInput は対話中に入力を採用できなかった理由を示し、聞き直す前の
 // 区切りを入れる。
-func RenderRejectedInput(w io.Writer, err error) {
-	fmt.Fprintf(w, "  %v\n\n", err)
+func RenderRejectedInput(w io.Writer, pal Palette, err error) {
+	fmt.Fprintf(w, "  %s\n\n", pal.Warn(fmt.Sprint(err)))
 }
 
 // RenderRepoFileCreated は雛形を書き出したことを伝える。
-func RenderRepoFileCreated(w io.Writer, home, path string) {
-	fmt.Fprintf(w, "\nCreated %s\n", displayAbsPath(home, path))
+func RenderRepoFileCreated(w io.Writer, pal Palette, home, path string) {
+	fmt.Fprintf(w, "\n%s\n", pal.OK("Created "+displayAbsPath(home, path)))
 }
 
 // RenderInitSummary は init が local config に保存した内容を要約する。
 // この後に apply の出力が続くため、末尾で 1 行空ける。
-func RenderInitSummary(w io.Writer, home, localPath, repo, profile string) {
-	fmt.Fprintf(w, "\nSaved %s\n", displayAbsPath(home, localPath))
+func RenderInitSummary(w io.Writer, pal Palette, home, localPath, repo, profile string) {
+	fmt.Fprintf(w, "\n%s\n", pal.OK("Saved "+displayAbsPath(home, localPath)))
 	fmt.Fprintf(w, "  repository: %s\n", displayAbsPath(home, repo))
 	fmt.Fprintf(w, "  profile:    %s\n\n", profileLabel(profile))
 }

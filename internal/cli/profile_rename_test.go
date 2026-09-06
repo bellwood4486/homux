@@ -20,7 +20,7 @@ func runRenameInteractive(t *testing.T, repo, from, to, stdin string) (stdout st
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetIn(strings.NewReader(stdin))
-	err = runProfileRename(cmd, repo, from, to, true)
+	err = runProfileRename(cmd, &globalFlags{repo: repo}, from, to, true)
 	return out.String(), err
 }
 
@@ -319,7 +319,7 @@ func TestProfileRename_RequiresInteractiveTerminal(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := runProfileRename(cmd, repo, "work", "company", false)
+	err := runProfileRename(cmd, &globalFlags{repo: repo}, "work", "company", false)
 	if err == nil {
 		t.Fatal("runProfileRename: want error, got nil")
 	}

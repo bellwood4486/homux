@@ -45,7 +45,7 @@ func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderPlan(&buf, testHome, actions)
+	RenderPlan(&buf, ColorOff, testHome, actions)
 
 	want := "Would create symlink:\n" +
 		"  ~/.config/foo/config\n" +
@@ -81,7 +81,7 @@ func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.current.String(), func(t *testing.T) {
 			var buf bytes.Buffer
-			RenderPlan(&buf, testHome, []plan.Action{{
+			RenderPlan(&buf, ColorOff, testHome, []plan.Action{{
 				Kind:    plan.ReplaceTarget,
 				Target:  testHome + "/.vimrc",
 				LinkTo:  testHome + "/dotfiles/.vimrc@@work",
@@ -103,7 +103,7 @@ func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
 
 func TestRenderPlan_NoActionsWritesNothing(t *testing.T) {
 	var buf bytes.Buffer
-	RenderPlan(&buf, testHome, nil)
+	RenderPlan(&buf, ColorOff, testHome, nil)
 
 	if got := buf.String(); got != "" {
 		t.Errorf("RenderPlan with no actions wrote %q, want empty", got)
@@ -121,7 +121,7 @@ func TestRenderDryRun_EndsWithNoChangesMade(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderDryRun(&buf, testHome, p)
+	RenderDryRun(&buf, ColorOff, testHome, p)
 
 	want := "Would create symlink:\n" +
 		"  ~/.zshrc\n" +
@@ -135,7 +135,7 @@ func TestRenderDryRun_EndsWithNoChangesMade(t *testing.T) {
 
 func TestRenderDryRun_NoActions(t *testing.T) {
 	var buf bytes.Buffer
-	RenderDryRun(&buf, testHome, plan.Plan{})
+	RenderDryRun(&buf, ColorOff, testHome, plan.Plan{})
 
 	if got, want := buf.String(), "No changes made.\n"; got != want {
 		t.Errorf("RenderDryRun:\ngot:\n%s\nwant:\n%s", got, want)
@@ -154,7 +154,7 @@ func TestRenderDryRun_ShowsDiagnosticsForErrorStates(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderDryRun(&buf, testHome, p)
+	RenderDryRun(&buf, ColorOff, testHome, p)
 
 	want := "No changes made.\n" +
 		"\n" +
@@ -172,7 +172,7 @@ func (errStub) Error() string { return "stub failure" }
 
 func TestRenderApplyResult_NoChanges(t *testing.T) {
 	var buf bytes.Buffer
-	RenderApplyResult(&buf, testHome, exec.Result{}, plan.Plan{})
+	RenderApplyResult(&buf, ColorOff, testHome, exec.Result{}, plan.Plan{})
 
 	if got, want := buf.String(), "No changes.\n"; got != want {
 		t.Errorf("RenderApplyResult:\ngot:\n%s\nwant:\n%s", got, want)
@@ -191,7 +191,7 @@ func TestRenderApplyResult_AppliedAndSkipped(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderApplyResult(&buf, testHome, res, plan.Plan{})
+	RenderApplyResult(&buf, ColorOff, testHome, res, plan.Plan{})
 
 	want := "Applied 2 changes.\n" +
 		"Skipped 1 change (answered no).\n"
@@ -212,7 +212,7 @@ func TestRenderApplyResult_PartialApplyReportsFailedAndPending(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderApplyResult(&buf, testHome, res, plan.Plan{})
+	RenderApplyResult(&buf, ColorOff, testHome, res, plan.Plan{})
 
 	want := "Applied 1 change.\n" +
 		"\n" +
@@ -236,7 +236,7 @@ func TestRenderApplyResult_ErrorTargetsAreCountedAndDiagnosed(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderApplyResult(&buf, testHome, exec.Result{}, plan.Plan{States: states})
+	RenderApplyResult(&buf, ColorOff, testHome, exec.Result{}, plan.Plan{States: states})
 
 	want := "No changes.\n" +
 		"1 target skipped due to errors.\n" +

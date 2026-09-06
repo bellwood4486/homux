@@ -59,7 +59,7 @@ type RewriteCollision struct {
 }
 
 // RenderDeletePlan は spec §12.11 の plan を w に書き出す。
-func RenderDeletePlan(w io.Writer, p DeletePlan) {
+func RenderDeletePlan(w io.Writer, pal Palette, p DeletePlan) {
 	n := len(p.Removals) + len(p.Rewrites)
 	if n == 0 {
 		fmt.Fprintf(w, "Profile %q is not referenced by any source.\n\n", p.Profile)
@@ -67,7 +67,7 @@ func RenderDeletePlan(w io.Writer, p DeletePlan) {
 		fmt.Fprintf(w, "Profile %q is referenced by %s.\n\n", p.Profile, countPhrase(n, "source", "sources"))
 	}
 
-	fmt.Fprintln(w, "Remove:")
+	fmt.Fprintln(w, pal.Warn("Remove:"))
 	if len(p.Removals) == 0 {
 		fmt.Fprintf(w, "  %s\n", noneChoice)
 	}
@@ -92,7 +92,7 @@ func RenderDeletePlan(w io.Writer, p DeletePlan) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "Profile definition:")
-	fmt.Fprintf(w, "  %s -> (removed)\n\n", p.Profile)
+	fmt.Fprintf(w, "  %s\n\n", pal.Warn(p.Profile+" -> (removed)"))
 
 	if p.LocalActive {
 		fmt.Fprintln(w, "Local active profile:")
@@ -141,9 +141,11 @@ func sourceLabel(repoPath string) string {
 //
 // この出力が出たとき repository は 1 バイトも変更されていない。delete は
 // rename と同じく事前に全件を検証してから実行する。
-func FormatRewriteCollision(c RewriteCollision) string {
+//
+// pal が ColorOff なら出力は色を持たない従来通りの文字列である。
+func FormatRewriteCollision(pal Palette, c RewriteCollision) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "ERROR selector rewrite collision\n\n")
+	fmt.Fprintf(&b, "%s\n\n", pal.Error("ERROR selector rewrite collision"))
 	fmt.Fprintf(&b, "  %s\n", c.Line.From)
 	fmt.Fprintf(&b, "  -> %s\n\n", c.Line.To)
 	fmt.Fprintf(&b, "%s\n", rewriteCollisionReason(c.Kind))
@@ -158,11 +160,11 @@ func rewriteCollisionReason(k CollisionKind) string {
 }
 
 // RenderDeleteResult は exec.DeleteAll の結果を w に書き出す。
-func RenderDeleteResult(w io.Writer, repo string, p DeletePlan, res exec.DeleteResult) {
+func RenderDeleteResult(w io.Writer, pal Palette, repo string, p DeletePlan, res exec.DeleteResult) {
 	removed, rewritten := countApplied(res.Applied)
 
 	if res.Err != nil {
-		renderDeleteFailure(w, repo, p, res, removed, rewritten)
+		renderDeleteFailure(w, pal, repo, p, res, removed, rewritten)
 		return
 	}
 
@@ -192,11 +194,11 @@ func countApplied(items []exec.DeleteItem) (removed, rewritten int) {
 // ここに来るのは事前検証を通り抜けた想定外の I/O エラーだけである。
 // ロールバックはしないため、利用者が手で終わらせるための手順を示す。
 // .homux.toml はファイルの後に書くため、この時点では profile が残っている。
-func renderDeleteFailure(w io.Writer, repo string, p DeletePlan, res exec.DeleteResult, removed, rewritten int) {
+func renderDeleteFailure(w io.Writer, pal Palette, repo string, p DeletePlan, res exec.DeleteResult, removed, rewritten int) {
 	fmt.Fprintf(w, "Removed %s and rewrote %s before failing.\n\n",
 		countPhrase(removed, "file", "files"), countPhrase(rewritten, "selector", "selectors"))
 
-	fmt.Fprintln(w, "Failed:")
+	fmt.Fprintln(w, pal.Error("Failed:"))
 	fmt.Fprintf(w, "  %s\n", displayRepoPath(repo, res.Failed.Path))
 	fmt.Fprintf(w, "  %s\n", res.Err)
 

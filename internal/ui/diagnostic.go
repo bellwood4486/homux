@@ -16,40 +16,42 @@ import (
 //
 // errors.Join でまとめられた複数エラー（同一 target に複数の selector 問題が
 // あるケース）は、それぞれを個別のブロックとして空行区切りで並べる。
-func FormatResolveError(err error) string {
+//
+// pal が ColorOff なら出力は色を持たない従来通りの文字列である。
+func FormatResolveError(pal Palette, err error) string {
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		errs := joined.Unwrap()
 		parts := make([]string, 0, len(errs))
 		for _, e := range errs {
-			parts = append(parts, strings.TrimRight(FormatResolveError(e), "\n"))
+			parts = append(parts, strings.TrimRight(FormatResolveError(pal, e), "\n"))
 		}
 		return strings.Join(parts, "\n\n") + "\n"
 	}
 
 	var unknownProfile *resolve.UnknownProfileError
 	if errors.As(err, &unknownProfile) {
-		return formatUnknownProfile(unknownProfile)
+		return formatUnknownProfile(pal, unknownProfile)
 	}
 	var invalidSelector *resolve.InvalidSelectorError
 	if errors.As(err, &invalidSelector) {
-		return formatInvalidSelector(invalidSelector)
+		return formatInvalidSelector(pal, invalidSelector)
 	}
 	var ambiguous *resolve.AmbiguousError
 	if errors.As(err, &ambiguous) {
-		return formatAmbiguous(ambiguous)
+		return formatAmbiguous(pal, ambiguous)
 	}
-	return fmt.Sprintf("ERROR\n\n  %s\n", err)
+	return fmt.Sprintf("%s\n\n  %s\n", pal.Error("ERROR"), err)
 }
 
 // formatUnknownProfile は spec §10.1 を実装する。RepoPath が空なのは
 // active profile 自体が未定義の場合だけである（source ではなく設定の問題）。
-func formatUnknownProfile(e *resolve.UnknownProfileError) string {
+func formatUnknownProfile(pal Palette, e *resolve.UnknownProfileError) string {
 	header := e.RepoPath
 	if header == "" {
 		header = "active profile"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "ERROR %s\n\n", header)
+	fmt.Fprintf(&b, "%s\n\n", pal.Error("ERROR "+header))
 	fmt.Fprintf(&b, "  Unknown profile %q.\n", e.Profile)
 	if e.Suggestion != "" {
 		fmt.Fprintf(&b, "  Did you mean %q?\n", e.Suggestion)
@@ -58,15 +60,15 @@ func formatUnknownProfile(e *resolve.UnknownProfileError) string {
 }
 
 // formatInvalidSelector は spec §10.2 を実装する。
-func formatInvalidSelector(e *resolve.InvalidSelectorError) string {
-	return fmt.Sprintf("ERROR %s\n\n  Invalid selector syntax.\n", e.RepoPath)
+func formatInvalidSelector(pal Palette, e *resolve.InvalidSelectorError) string {
+	return fmt.Sprintf("%s\n\n  Invalid selector syntax.\n", pal.Error("ERROR "+e.RepoPath))
 }
 
 // formatAmbiguous は spec §10.3 を実装する。Target は HOME からの相対パスなので
 // "~/" を前置して表示する。
-func formatAmbiguous(e *resolve.AmbiguousError) string {
+func formatAmbiguous(pal Palette, e *resolve.AmbiguousError) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "ERROR ambiguous profile match\n\n")
+	fmt.Fprintf(&b, "%s\n\n", pal.Error("ERROR ambiguous profile match"))
 	fmt.Fprintf(&b, "  Target:\n    ~/%s\n\n", e.Target)
 	fmt.Fprintf(&b, "  Matching sources:\n")
 	for _, m := range e.Matching {

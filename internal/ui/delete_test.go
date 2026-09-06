@@ -16,7 +16,7 @@ import (
 func TestRenderDeletePlan(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderDeletePlan(&buf, DeletePlan{
+	RenderDeletePlan(&buf, ColorOff, DeletePlan{
 		Profile: "work",
 		Removals: []string{
 			".gitconfig@@work",
@@ -56,7 +56,7 @@ func TestRenderDeletePlan(t *testing.T) {
 func TestRenderDeletePlan_NoReferences(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderDeletePlan(&buf, DeletePlan{Profile: "work"})
+	RenderDeletePlan(&buf, ColorOff, DeletePlan{Profile: "work"})
 
 	got := buf.String()
 	if !strings.Contains(got, "Profile \"work\" is not referenced by any source.") {
@@ -77,7 +77,7 @@ func TestRenderDeletePlan_NoReferences(t *testing.T) {
 // rewrite 先が既に存在する場合。この出力が出たとき repository は 1 バイトも
 // 変更されていない。
 func TestFormatRewriteCollision(t *testing.T) {
-	got := FormatRewriteCollision(RewriteCollision{
+	got := FormatRewriteCollision(ColorOff, RewriteCollision{
 		Line: RewriteLine{From: "foo@@work+personal", To: "foo@@personal"},
 		Kind: CollisionExists,
 	})
@@ -92,7 +92,7 @@ func TestFormatRewriteCollision(t *testing.T) {
 }
 
 func TestFormatRewriteCollision_Duplicate(t *testing.T) {
-	got := FormatRewriteCollision(RewriteCollision{
+	got := FormatRewriteCollision(ColorOff, RewriteCollision{
 		Line: RewriteLine{From: "foo@@work+personal", To: "foo@@personal"},
 		Kind: CollisionDuplicate,
 	})
@@ -107,7 +107,7 @@ func TestRenderDeleteResult(t *testing.T) {
 	repo := filepath.FromSlash("/repo")
 	var buf bytes.Buffer
 
-	RenderDeleteResult(&buf, repo, DeletePlan{Profile: "work", LocalActive: true}, exec.DeleteResult{
+	RenderDeleteResult(&buf, ColorOff, repo, DeletePlan{Profile: "work", LocalActive: true}, exec.DeleteResult{
 		Applied: []exec.DeleteItem{
 			{Path: filepath.Join(repo, ".gitconfig@@work")},
 			{Path: filepath.Join(repo, "foo@@work+personal"), Rewrite: filepath.Join(repo, "foo@@personal")},
@@ -134,7 +134,7 @@ func TestRenderDeleteResult_PartialFailure(t *testing.T) {
 	repo := filepath.FromSlash("/repo")
 	var buf bytes.Buffer
 
-	RenderDeleteResult(&buf, repo, DeletePlan{Profile: "work"}, exec.DeleteResult{
+	RenderDeleteResult(&buf, ColorOff, repo, DeletePlan{Profile: "work"}, exec.DeleteResult{
 		Applied: []exec.DeleteItem{{Path: filepath.Join(repo, "a@@work")}},
 		Failed:  exec.DeleteItem{Path: filepath.Join(repo, "b@@work")},
 		Pending: []exec.DeleteItem{{Path: filepath.Join(repo, "c@@work")}},

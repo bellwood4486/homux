@@ -51,19 +51,19 @@ func newProfileRenameCmd(flags *globalFlags) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runProfileRename(cmd, flags.repo, args[0], args[1], interactive)
+			return runProfileRename(cmd, flags, args[0], args[1], interactive)
 		},
 	}
 }
 
 // runProfileRename は spec §12.10 の手順をそのままなぞる。
-func runProfileRename(cmd *cobra.Command, repoFlag, from, to string, interactive bool) error {
+func runProfileRename(cmd *cobra.Command, flags *globalFlags, from, to string, interactive bool) error {
 	if !selector.ValidProfileName(to) {
 		return newUsageError(fmt.Errorf(
 			"invalid profile name %q: must match ^[a-z0-9][a-z0-9_-]*$", to))
 	}
 
-	ws, err := loadWorkspace(repoFlag)
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
@@ -91,11 +91,11 @@ func runProfileRename(cmd *cobra.Command, repoFlag, from, to string, interactive
 		Active:   ws.profile,
 	})
 	if err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 	if err := structuralError(resolutions); err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 
@@ -103,14 +103,14 @@ func runProfileRename(cmd *cobra.Command, repoFlag, from, to string, interactive
 	if err != nil {
 		var collision *renameCollisionError
 		if errors.As(err, &collision) {
-			fmt.Fprint(cmd.ErrOrStderr(), ui.FormatRenameCollision(collision.collision))
+			fmt.Fprint(cmd.ErrOrStderr(), ui.FormatRenameCollision(flags.colorErr, collision.collision))
 			return silentExitError{}
 		}
 		return err
 	}
 
 	out := cmd.OutOrStdout()
-	ui.RenderRenamePlan(out, plan)
+	ui.RenderRenamePlan(out, flags.colorOut, plan)
 
 	if !interactive {
 		return errors.New(
@@ -127,7 +127,7 @@ func runProfileRename(cmd *cobra.Command, repoFlag, from, to string, interactive
 
 	res := exec.RenameAll(items)
 	if res.Err != nil {
-		ui.RenderRenameResult(out, ws.env.Repo, plan, res)
+		ui.RenderRenameResult(out, flags.colorOut, ws.env.Repo, plan, res)
 		return silentExitError{}
 	}
 
@@ -135,7 +135,7 @@ func runProfileRename(cmd *cobra.Command, repoFlag, from, to string, interactive
 		return err
 	}
 
-	ui.RenderRenameResult(out, ws.env.Repo, plan, res)
+	ui.RenderRenameResult(out, flags.colorOut, ws.env.Repo, plan, res)
 	return nil
 }
 

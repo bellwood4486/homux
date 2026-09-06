@@ -17,7 +17,7 @@ func newStatusCmd(flags *globalFlags) *cobra.Command {
 		Short: "現在の HOME が desired state と同期しているかを表示する",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStatus(cmd, flags.repo, all, verbose)
+			return runStatus(cmd, flags, all, verbose)
 		},
 	}
 
@@ -30,13 +30,13 @@ func newStatusCmd(flags *globalFlags) *cobra.Command {
 // runStatus は scan → resolve → inspect → plan のパイプラインを一度だけ
 // 実行し、その結果を ui.RenderStatus に渡す。status と apply が同じ
 // resolver / planner を使うのは INV-11 の要請である。
-func runStatus(cmd *cobra.Command, repoFlag string, all, verbose bool) error {
-	ws, _, p, err := buildPlan(cmd, repoFlag)
+func runStatus(cmd *cobra.Command, flags *globalFlags, all, verbose bool) error {
+	ws, _, p, err := buildPlan(cmd, flags)
 	if err != nil {
 		return err
 	}
 
-	ui.RenderStatus(cmd.OutOrStdout(), ws.env.Home, ws.profile, p.States, ui.StatusOptions{All: all, Verbose: verbose})
+	ui.RenderStatus(cmd.OutOrStdout(), flags.colorOut, ws.env.Home, ws.profile, p.States, ui.StatusOptions{All: all, Verbose: verbose})
 
 	if p.Errors() > 0 {
 		return silentExitError{}

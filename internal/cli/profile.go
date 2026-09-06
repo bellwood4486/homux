@@ -42,17 +42,17 @@ func newProfileListCmd(flags *globalFlags) *cobra.Command {
 		Short: ".homux.toml の profiles と active profile を表示する",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runProfileList(cmd, flags.repo)
+			return runProfileList(cmd, flags)
 		},
 	}
 }
 
-func runProfileList(cmd *cobra.Command, repoFlag string) error {
-	ws, err := loadWorkspace(repoFlag)
+func runProfileList(cmd *cobra.Command, flags *globalFlags) error {
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
-	ui.RenderProfileList(cmd.OutOrStdout(), ws.repo.Profiles, ws.profile)
+	ui.RenderProfileList(cmd.OutOrStdout(), flags.colorOut, ws.repo.Profiles, ws.profile)
 	return nil
 }
 
@@ -64,7 +64,7 @@ func newProfileUseCmd(flags *globalFlags) *cobra.Command {
 		Short: "この PC の active profile を切り替える",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runProfileUse(cmd, flags.repo, args[0])
+			return runProfileUse(cmd, flags, args[0])
 		},
 	}
 }
@@ -76,14 +76,14 @@ func newProfileUseCmd(flags *globalFlags) *cobra.Command {
 // （status / apply と同じパイプライン、INV-11）を新しい active profile で
 // 走らせ、desired state と差異があるときだけ "homux apply" のヒントを出す
 // （spec §12.8）。
-func runProfileUse(cmd *cobra.Command, repoFlag, name string) error {
-	ws, err := loadWorkspace(repoFlag)
+func runProfileUse(cmd *cobra.Command, flags *globalFlags, name string) error {
+	ws, err := loadWorkspace(flags.repo)
 	if err != nil {
 		return err
 	}
 
 	if _, err := resolve.All(resolve.Input{Profiles: ws.repo.Profiles, Active: name}); err != nil {
-		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(err))
+		fmt.Fprint(cmd.ErrOrStderr(), ui.FormatResolveError(flags.colorErr, err))
 		return silentExitError{}
 	}
 
@@ -92,11 +92,11 @@ func runProfileUse(cmd *cobra.Command, repoFlag, name string) error {
 		return err
 	}
 
-	_, _, p, err := buildPlan(cmd, repoFlag)
+	_, _, p, err := buildPlan(cmd, flags)
 	if err != nil {
 		return err
 	}
 
-	ui.RenderProfileSwitch(cmd.OutOrStdout(), ws.profile, name, len(p.Actions) > 0)
+	ui.RenderProfileSwitch(cmd.OutOrStdout(), flags.colorOut, ws.profile, name, len(p.Actions) > 0)
 	return nil
 }

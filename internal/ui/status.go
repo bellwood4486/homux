@@ -24,7 +24,9 @@ const labelWidth = 11
 // RenderStatus は states（plan.Plan.States、path 昇順）を spec §12.2 の
 // レイアウトで w に書き出す。states は inspect.All または plan.All の出力を
 // そのまま渡すことを想定し、ここでは並び替えない。
-func RenderStatus(w io.Writer, home, profile string, states []inspect.TargetState, opts StatusOptions) {
+//
+// pal が ColorOff なら出力は色を持たない従来通りの文字列である。
+func RenderStatus(w io.Writer, pal Palette, home, profile string, states []inspect.TargetState, opts StatusOptions) {
 	fmt.Fprintf(w, "Profile: %s\n\n", profileLabel(profile))
 
 	changes, errs := 0, 0
@@ -45,7 +47,11 @@ func RenderStatus(w io.Writer, home, profile string, states []inspect.TargetStat
 		if opts.Verbose && i > 0 {
 			fmt.Fprintln(w)
 		}
-		fmt.Fprintf(w, "%-*s%s\n", labelWidth, stateLabel(s.Kind), displayPath(s))
+		// 幅計算（labelWidth）は色を塗る前の素の文字列に対して行う。ANSI
+		// エスケープを含めてパディングすると、その文字数分だけ表示上の
+		// 余白が減って桁がずれるためである。
+		padded := fmt.Sprintf("%-*s", labelWidth, stateLabel(s.Kind))
+		fmt.Fprintf(w, "%s%s\n", paintLabel(pal, s.Kind, padded), displayPath(s))
 		if opts.Verbose {
 			writeVerboseDetails(w, home, s)
 		}
@@ -56,7 +62,23 @@ func RenderStatus(w io.Writer, home, profile string, states []inspect.TargetStat
 	}
 	fmt.Fprintln(w, summaryLine(changes, errs))
 
-	writeDiagnostics(w, states)
+	writeDiagnostics(w, pal, states)
+}
+
+// paintLabel は状態の深刻度に応じてラベルを塗る。Linked が OK、
+// Missing/Occupied/Stale/Inactive が Warn、Error が Error である
+// （Ignored は中立なので塗らない）。
+func paintLabel(pal Palette, k inspect.StateKind, s string) string {
+	switch k {
+	case inspect.KindLinked:
+		return pal.OK(s)
+	case inspect.KindMissing, inspect.KindOccupied, inspect.KindStale, inspect.KindInactive:
+		return pal.Warn(s)
+	case inspect.KindError:
+		return pal.Error(s)
+	default:
+		return s
+	}
 }
 
 // visible は --all 無指定時に表示する状態を判定する（spec §12.2:
@@ -179,12 +201,12 @@ func displayAbsPath(home, abs string) string {
 // Resolution.Err（resolve 由来の構造エラー）を優先し、無ければ
 // TargetState.Err（inspect / plan 由来の I/O エラーなど、spec §10 に定義の
 // 無い種類）を汎用フォーマットで表示する。
-func diagnosticFor(s inspect.TargetState) string {
+func diagnosticFor(pal Palette, s inspect.TargetState) string {
 	if s.Resolution.Err != nil {
-		return FormatResolveError(s.Resolution.Err)
+		return FormatResolveError(pal, s.Resolution.Err)
 	}
 	if s.Err != nil {
-		return fmt.Sprintf("ERROR %s\n\n  %s\n", displayPath(s), s.Err)
+		return fmt.Sprintf("%s\n\n  %s\n", pal.Error("ERROR "+displayPath(s)), s.Err)
 	}
 	return ""
 }

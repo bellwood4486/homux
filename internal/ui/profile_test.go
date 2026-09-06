@@ -7,7 +7,7 @@ import (
 
 func TestRenderProfileList_MatchesSpecExample(t *testing.T) {
 	var out bytes.Buffer
-	RenderProfileList(&out, []string{"work", "personal"}, "work")
+	RenderProfileList(&out, ColorOff, []string{"work", "personal"}, "work")
 
 	want := "Profiles:\n\n" +
 		"  personal\n" +
@@ -20,7 +20,7 @@ func TestRenderProfileList_MatchesSpecExample(t *testing.T) {
 
 func TestRenderProfileList_NoActiveProfile(t *testing.T) {
 	var out bytes.Buffer
-	RenderProfileList(&out, []string{"work", "personal"}, "")
+	RenderProfileList(&out, ColorOff, []string{"work", "personal"}, "")
 
 	want := "Profiles:\n\n" +
 		"  personal\n" +
@@ -33,7 +33,7 @@ func TestRenderProfileList_NoActiveProfile(t *testing.T) {
 
 func TestRenderProfileList_NoProfilesDefined(t *testing.T) {
 	var out bytes.Buffer
-	RenderProfileList(&out, nil, "")
+	RenderProfileList(&out, ColorOff, nil, "")
 
 	want := "Profiles:\n\n" +
 		"  (none)\n\n" +
@@ -45,7 +45,7 @@ func TestRenderProfileList_NoProfilesDefined(t *testing.T) {
 
 func TestRenderProfileSwitch_ApplyNeeded(t *testing.T) {
 	var out bytes.Buffer
-	RenderProfileSwitch(&out, "personal", "work", true)
+	RenderProfileSwitch(&out, ColorOff, "personal", "work", true)
 
 	want := "Active profile: personal -> work\n\n" +
 		"Run \"homux apply\" to update HOME.\n"
@@ -56,7 +56,7 @@ func TestRenderProfileSwitch_ApplyNeeded(t *testing.T) {
 
 func TestRenderProfileSwitch_NoApplyNeeded(t *testing.T) {
 	var out bytes.Buffer
-	RenderProfileSwitch(&out, "", "work", false)
+	RenderProfileSwitch(&out, ColorOff, "", "work", false)
 
 	want := "Active profile: (none) -> work\n\n" +
 		"HOME already matches this profile.\n"

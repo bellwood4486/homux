@@ -34,7 +34,7 @@ func runAddInteractive(t *testing.T, repo, stdin string, args []string, opts add
 	cmd.SetIn(strings.NewReader(stdin))
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	err = runAdd(cmd, repo, args, opts, true)
+	err = runAdd(cmd, &globalFlags{repo: repo}, args, opts, true)
 	return out.String(), err
 }
 

@@ -37,7 +37,7 @@ type MigrationPlan struct {
 //
 // 「何が変わらないか」を先に見せるのは、profile を足しても既定では
 // すべてが common のまま、という spec §12.9 の前提を確認の場で示すためである。
-func RenderMigrationPlan(w io.Writer, p MigrationPlan) {
+func RenderMigrationPlan(w io.Writer, pal Palette, p MigrationPlan) {
 	fmt.Fprintf(w, "Profile migration plan: %s\n\n", p.Profile)
 
 	fmt.Fprintln(w, "Keep common:")
@@ -49,7 +49,7 @@ func RenderMigrationPlan(w io.Writer, p MigrationPlan) {
 	}
 	fmt.Fprintln(w)
 
-	fmt.Fprintln(w, "Fork:")
+	fmt.Fprintln(w, pal.Warn("Fork:"))
 	if len(p.Forks) == 0 {
 		fmt.Fprintf(w, "  %s\n", noneChoice)
 	}
@@ -75,7 +75,7 @@ func RenderMigrationPlan(w io.Writer, p MigrationPlan) {
 // profiles への追加は fork より先に済んでいるため、成否にかかわらず
 // 「profile は作られた」と伝える。部分適用はロールバックしない
 // （RenderAddResult と同じ方針）。
-func RenderMigrationResult(w io.Writer, repo, profile string, res exec.ForkResult) {
+func RenderMigrationResult(w io.Writer, pal Palette, repo, profile string, res exec.ForkResult) {
 	fmt.Fprintf(w, "Created profile %q.\n", profile)
 
 	if res.Err == nil {
@@ -87,7 +87,7 @@ func RenderMigrationResult(w io.Writer, repo, profile string, res exec.ForkResul
 	}
 
 	fmt.Fprintf(w, "Forked %s before failing.\n\n", countPhrase(len(res.Applied), "file", "files"))
-	fmt.Fprintln(w, "Failed:")
+	fmt.Fprintln(w, pal.Error("Failed:"))
 	fmt.Fprintf(w, "  %s\n", displayRepoPath(repo, res.Failed.Fork))
 	fmt.Fprintf(w, "  %s\n", res.Err)
 

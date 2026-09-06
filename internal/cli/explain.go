@@ -23,7 +23,7 @@ func newExplainCmd(flags *globalFlags) *cobra.Command {
 		Short: "1 ファイルについて、なぜその状態になったのかを説明する",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runExplain(cmd, flags.repo, args[0])
+			return runExplain(cmd, flags, args[0])
 		},
 	}
 	return cmd
@@ -33,8 +33,8 @@ func newExplainCmd(flags *globalFlags) *cobra.Command {
 // （runStatus）と同一の順序で一度だけ実行し、引数が指す 1 target を抜き出して
 // ui.RenderExplain に渡す。status と同じ resolver / planner を使うことで
 // INV-11 を守る（解決ロジックを explain のために書き直さない）。
-func runExplain(cmd *cobra.Command, repoFlag, argPath string) error {
-	ws, scanned, p, err := buildPlan(cmd, repoFlag)
+func runExplain(cmd *cobra.Command, flags *globalFlags, argPath string) error {
+	ws, scanned, p, err := buildPlan(cmd, flags)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func runExplain(cmd *cobra.Command, repoFlag, argPath string) error {
 		return err
 	}
 
-	ui.RenderExplain(cmd.OutOrStdout(), ws.env.Home, ws.profile, state, action)
+	ui.RenderExplain(cmd.OutOrStdout(), flags.colorOut, ws.env.Home, ws.profile, state, action)
 
 	if state.Kind == inspect.KindError {
 		return silentExitError{}

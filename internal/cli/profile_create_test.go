@@ -21,7 +21,7 @@ func runCreateInteractive(t *testing.T, repo, name, stdin string, sel forkSelect
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetIn(strings.NewReader(stdin))
-	err = runProfileCreate(cmd, repo, name, sel, true)
+	err = runProfileCreate(cmd, &globalFlags{repo: repo}, name, sel, true)
 	return out.String(), err
 }
 
@@ -196,7 +196,7 @@ func TestProfileCreate_RequiresInteractiveTerminal(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := runProfileCreate(cmd, repo, "work", nil, false)
+	err := runProfileCreate(cmd, &globalFlags{repo: repo}, "work", nil, false)
 	if err == nil {
 		t.Fatal("runProfileCreate: want error, got nil")
 	}

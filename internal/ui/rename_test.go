@@ -16,7 +16,7 @@ import (
 func TestRenderRenamePlan(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderRenamePlan(&buf, RenamePlan{
+	RenderRenamePlan(&buf, ColorOff, RenamePlan{
 		From: "work",
 		To:   "company",
 		Files: []RenameLine{
@@ -49,7 +49,7 @@ func TestRenderRenamePlan(t *testing.T) {
 func TestRenderRenamePlanWithoutReferences(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderRenamePlan(&buf, RenamePlan{From: "work", To: "company"})
+	RenderRenamePlan(&buf, ColorOff, RenamePlan{From: "work", To: "company"})
 
 	want := "Rename profile \"work\" -> \"company\"\n\n" +
 		"Profile definition:\n" +
@@ -66,7 +66,7 @@ func TestRenderRenamePlanWithoutReferences(t *testing.T) {
 // spec §12.10 の衝突エラー。1 バイトも変更していないことが前提なので、
 // ここには「どこまで進んだか」は現れない（INV-15）。
 func TestFormatRenameCollision(t *testing.T) {
-	got := FormatRenameCollision(RenameCollision{
+	got := FormatRenameCollision(ColorOff, RenameCollision{
 		Line: RenameLine{From: ".gitconfig@@work", To: ".gitconfig@@company"},
 		Kind: CollisionExists,
 	})
@@ -83,7 +83,7 @@ func TestFormatRenameCollision(t *testing.T) {
 // 2 つの source が同じ名前へ改名される場合も衝突である。宛先はまだ存在
 // しないため、理由の文だけが異なる。
 func TestFormatRenameCollisionDuplicate(t *testing.T) {
-	got := FormatRenameCollision(RenameCollision{
+	got := FormatRenameCollision(ColorOff, RenameCollision{
 		Line: RenameLine{From: "foo@@work+personal", To: "foo@@company+personal"},
 		Kind: CollisionDuplicate,
 	})
@@ -102,7 +102,7 @@ func TestRenderRenameResult(t *testing.T) {
 	var buf bytes.Buffer
 	repo := filepath.Join("/tmp", "repo")
 
-	RenderRenameResult(&buf, repo, RenamePlan{From: "work", To: "company", LocalActive: true}, exec.RenameResult{
+	RenderRenameResult(&buf, ColorOff, repo, RenamePlan{From: "work", To: "company", LocalActive: true}, exec.RenameResult{
 		Applied: []exec.RenameItem{
 			{From: filepath.Join(repo, "a@@work"), To: filepath.Join(repo, "a@@company")},
 			{From: filepath.Join(repo, "b@@work"), To: filepath.Join(repo, "b@@company")},
@@ -130,7 +130,7 @@ func TestRenderRenameResultPartialFailure(t *testing.T) {
 	var buf bytes.Buffer
 	repo := filepath.Join("/tmp", "repo")
 
-	RenderRenameResult(&buf, repo, RenamePlan{From: "work", To: "company"}, exec.RenameResult{
+	RenderRenameResult(&buf, ColorOff, repo, RenamePlan{From: "work", To: "company"}, exec.RenameResult{
 		Applied: []exec.RenameItem{{From: filepath.Join(repo, "a@@work"), To: filepath.Join(repo, "a@@company")}},
 		Failed:  exec.RenameItem{From: filepath.Join(repo, "b@@work"), To: filepath.Join(repo, "b@@company")},
 		Pending: []exec.RenameItem{{From: filepath.Join(repo, "c@@work"), To: filepath.Join(repo, "c@@company")}},

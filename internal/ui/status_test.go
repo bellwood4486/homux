@@ -40,7 +40,7 @@ func TestRenderStatus_DefaultView_MatchesSpecExample(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{})
 
 	want := "Profile: work\n\n" +
 		"Missing    ~/.config/foo/config\n" +
@@ -58,7 +58,7 @@ func TestRenderStatus_NoChanges(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "", states, StatusOptions{})
+	RenderStatus(&out, ColorOff, "/home/u", "", states, StatusOptions{})
 
 	want := "Profile: (none)\n\nNo changes.\n"
 	if out.String() != want {
@@ -74,7 +74,7 @@ func TestRenderStatus_All_IncludesLinkedIgnoredInactive(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{All: true})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{All: true})
 
 	want := "Profile: work\n\n" +
 		"Linked     ~/.zshrc\n" +
@@ -102,7 +102,7 @@ func TestRenderStatus_Verbose_ShowsSourceAndCurrent(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{Verbose: true})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{Verbose: true})
 
 	want := "Profile: work\n\n" +
 		"Stale      ~/.config/old/config\n" +
@@ -123,7 +123,7 @@ func TestRenderStatus_Verbose_NoSourceShowsNone(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{All: true, Verbose: true})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{All: true, Verbose: true})
 
 	want := "Profile: work\n\n" +
 		"Inactive   ~/.config/old/config\n" +
@@ -150,7 +150,7 @@ func TestRenderStatus_ErrorEntry_AppendsDiagnosticBlock(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{})
 
 	want := "Profile: work\n\n" +
 		"Error      ~/.gitconfig\n\n" +
@@ -175,7 +175,7 @@ func TestRenderStatus_ErrorEntry_FallsBackToTargetStateErr(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	RenderStatus(&out, "/home/u", "work", states, StatusOptions{})
+	RenderStatus(&out, ColorOff, "/home/u", "work", states, StatusOptions{})
 
 	want := "Profile: work\n\n" +
 		"Error      ~/.zshrc\n\n" +

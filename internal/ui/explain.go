@@ -15,11 +15,11 @@ import (
 // それに対応する action（無ければ nil）を spec §12.3 のレイアウトで w に
 // 書き出す。出力は state.Resolution.Reason に由来し、resolve / plan の
 // 判定を explain のために書き直さない（INV-11）。
-func RenderExplain(w io.Writer, home, profile string, state inspect.TargetState, action *plan.Action) {
+func RenderExplain(w io.Writer, pal Palette, home, profile string, state inspect.TargetState, action *plan.Action) {
 	r := state.Resolution
 	fmt.Fprintf(w, "Target:\n  ~/%s\n\n", r.Target)
 
-	if diag := diagnosticFor(state); diag != "" {
+	if diag := diagnosticFor(pal, state); diag != "" {
 		fmt.Fprint(w, diag)
 		return
 	}
@@ -31,13 +31,17 @@ func RenderExplain(w io.Writer, home, profile string, state inspect.TargetState,
 		fmt.Fprintln(w, "  (none)")
 	}
 	for _, c := range r.Candidates {
-		fmt.Fprintf(w, "  %s%s\n", c.RepoPath, candidateNote(c, r, profile))
+		line := c.RepoPath + candidateNote(c, r, profile)
+		if r.Selected != nil && c.RepoPath == r.Selected.RepoPath {
+			line = pal.OK(line)
+		}
+		fmt.Fprintf(w, "  %s\n", line)
 	}
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "Selected:")
 	if r.Selected != nil {
-		fmt.Fprintf(w, "  %s\n", r.Selected.RepoPath)
+		fmt.Fprintf(w, "  %s\n", pal.OK(r.Selected.RepoPath))
 	} else {
 		fmt.Fprintln(w, "  (none)")
 	}

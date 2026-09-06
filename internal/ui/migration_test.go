@@ -13,7 +13,7 @@ import (
 func TestRenderMigrationPlan(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderMigrationPlan(&buf, MigrationPlan{
+	RenderMigrationPlan(&buf, ColorOff, MigrationPlan{
 		Profile:     "work",
 		KeepTargets: []string{".zshrc", ".config/ghostty/config"},
 		Forks: []ForkLine{
@@ -38,7 +38,7 @@ func TestRenderMigrationPlan(t *testing.T) {
 func TestRenderMigrationPlanWithoutForks(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderMigrationPlan(&buf, MigrationPlan{Profile: "work", KeepTargets: []string{".zshrc"}})
+	RenderMigrationPlan(&buf, ColorOff, MigrationPlan{Profile: "work", KeepTargets: []string{".zshrc"}})
 
 	want := "Profile migration plan: work\n\n" +
 		"Keep common:\n" +
@@ -55,7 +55,7 @@ func TestRenderMigrationPlanWithoutForks(t *testing.T) {
 func TestRenderMigrationPlanReportsSkipped(t *testing.T) {
 	var buf bytes.Buffer
 
-	RenderMigrationPlan(&buf, MigrationPlan{
+	RenderMigrationPlan(&buf, ColorOff, MigrationPlan{
 		Profile:         "work",
 		KeepTargets:     []string{".zshrc"},
 		SkippedNoCommon: 2,
@@ -76,7 +76,7 @@ func TestRenderMigrationResult(t *testing.T) {
 	repo := filepath.FromSlash("/srv/dotfiles")
 	var buf bytes.Buffer
 
-	RenderMigrationResult(&buf, repo, "work", exec.ForkResult{
+	RenderMigrationResult(&buf, ColorOff, repo, "work", exec.ForkResult{
 		Applied: []exec.ForkItem{
 			{Common: filepath.Join(repo, ".gitconfig"), Fork: filepath.Join(repo, ".gitconfig@@work")},
 		},
@@ -97,7 +97,7 @@ func TestRenderMigrationResultPartial(t *testing.T) {
 	repo := filepath.FromSlash("/srv/dotfiles")
 	var buf bytes.Buffer
 
-	RenderMigrationResult(&buf, repo, "work", exec.ForkResult{
+	RenderMigrationResult(&buf, ColorOff, repo, "work", exec.ForkResult{
 		Applied: []exec.ForkItem{
 			{Common: filepath.Join(repo, "a"), Fork: filepath.Join(repo, "a@@work")},
 		},

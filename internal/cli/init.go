@@ -39,7 +39,7 @@ func newInitCmd(flags *globalFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.profileSet = cmd.Flags().Changed("profile")
 			interactive := ui.IsInteractive(int(os.Stdin.Fd()), int(os.Stdout.Fd()))
-			return runInit(cmd, flags.repo, opts, interactive)
+			return runInit(cmd, flags, opts, interactive)
 		},
 	}
 
@@ -52,7 +52,7 @@ func newInitCmd(flags *globalFlags) *cobra.Command {
 //
 // interactive は「対話 UI を起動してよいか」であり、呼び出し側が決める
 // （runApply と同じ規約）。非対話で対話が必要になった時点で止まる（spec §11.4）。
-func runInit(cmd *cobra.Command, repoFlag string, opts initOptions, interactive bool) error {
+func runInit(cmd *cobra.Command, flags *globalFlags, opts initOptions, interactive bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("resolve home directory: %w", err)
@@ -60,11 +60,11 @@ func runInit(cmd *cobra.Command, repoFlag string, opts initOptions, interactive 
 	out := cmd.OutOrStdout()
 	prompter := ui.NewPrompter(cmd.InOrStdin(), out, home)
 
-	repoPath, err := initRepoPath(prompter, out, repoFlag, interactive)
+	repoPath, err := initRepoPath(prompter, out, flags.colorOut, flags.repo, interactive)
 	if err != nil {
 		return err
 	}
-	if err := ensureRepoFile(prompter, out, home, repoPath, interactive); err != nil {
+	if err := ensureRepoFile(prompter, out, flags.colorOut, home, repoPath, interactive); err != nil {
 		return err
 	}
 
@@ -81,18 +81,20 @@ func runInit(cmd *cobra.Command, repoFlag string, opts initOptions, interactive 
 	if err := config.SaveLocal(localPath, &config.Local{Repo: repoPath, Profile: profile}); err != nil {
 		return err
 	}
-	ui.RenderInitSummary(out, home, localPath, repoPath, profile)
+	ui.RenderInitSummary(out, flags.colorOut, home, localPath, repoPath, profile)
 
 	// ここから先は apply と 1 バイトも違わない経路を通る（INV-11）。
 	// local config は保存済みだが、解決済みのパスを明示的に渡す。
-	return runApply(cmd, repoPath, applyOptions{}, interactive)
+	initFlags := *flags
+	initFlags.repo = repoPath
+	return runApply(cmd, &initFlags, applyOptions{}, interactive)
 }
 
 // initRepoPath は repository のパスを決める。
 //
 // --repo で渡された値は聞き直さずその場で失敗する。対話入力は、有効なパスを
 // 得るまで聞き直す。既定候補はカレントディレクトリである（spec §12.1）。
-func initRepoPath(prompter *ui.Prompter, out io.Writer, repoFlag string, interactive bool) (string, error) {
+func initRepoPath(prompter *ui.Prompter, out io.Writer, pal ui.Palette, repoFlag string, interactive bool) (string, error) {
 	if repoFlag != "" {
 		return validateRepoDir(repoFlag)
 	}
@@ -114,7 +116,7 @@ func initRepoPath(prompter *ui.Prompter, out io.Writer, repoFlag string, interac
 		if err == nil {
 			return resolved, nil
 		}
-		ui.RenderRejectedInput(out, err)
+		ui.RenderRejectedInput(out, pal, err)
 	}
 }
 
@@ -137,7 +139,7 @@ func validateRepoDir(path string) (string, error) {
 
 // ensureRepoFile は .homux.toml が無ければ確認のうえ雛形を書き出す
 // （spec §12.1）。既存ファイルには一切触れない。
-func ensureRepoFile(prompter *ui.Prompter, out io.Writer, home, repoPath string, interactive bool) error {
+func ensureRepoFile(prompter *ui.Prompter, out io.Writer, pal ui.Palette, home, repoPath string, interactive bool) error {
 	path := filepath.Join(repoPath, config.RepoFileName)
 	if _, err := os.Stat(path); err == nil {
 		return nil
@@ -161,7 +163,7 @@ func ensureRepoFile(prompter *ui.Prompter, out io.Writer, home, repoPath string,
 	if err := config.CreateRepoFile(path); err != nil {
 		return err
 	}
-	ui.RenderRepoFileCreated(out, home, path)
+	ui.RenderRepoFileCreated(out, pal, home, path)
 	return nil
 }
 

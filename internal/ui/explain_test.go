@@ -32,7 +32,7 @@ func TestRenderExplain_StaleWithCandidateReasons(t *testing.T) {
 	action := &plan.Action{Kind: plan.Relink, Target: "/home/u/.claude/settings.json", LinkTo: "/home/u/dotfiles/.claude/settings.json@@work"}
 
 	var buf bytes.Buffer
-	RenderExplain(&buf, "/home/u", "work", state, action)
+	RenderExplain(&buf, ColorOff, "/home/u", "work", state, action)
 
 	want := "Target:\n  ~/.claude/settings.json\n\n" +
 		"Active profile:\n  work\n\n" +
@@ -69,7 +69,7 @@ func TestRenderExplain_NoActiveProfile_CandidateNoteSaysNoActiveProfile(t *testi
 	}
 
 	var buf bytes.Buffer
-	RenderExplain(&buf, "/home/u", "", state, nil)
+	RenderExplain(&buf, ColorOff, "/home/u", "", state, nil)
 
 	want := "Target:\n  ~/.vimrc\n\n" +
 		"Active profile:\n  (none)\n\n" +
@@ -102,7 +102,7 @@ func TestRenderExplain_AmbiguousShowsSpecDiagnostic(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderExplain(&buf, "/home/u", "work", state, nil)
+	RenderExplain(&buf, ColorOff, "/home/u", "work", state, nil)
 
 	want := "Target:\n  ~/.gitconfig\n\n" +
 		"ERROR ambiguous profile match\n\n" +
