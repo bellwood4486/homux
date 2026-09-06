@@ -296,7 +296,7 @@ Phase 5 — profile 管理
 
 Phase 2 の完了時点で「壊さないツール」として実用可能になる。Phase 3 以降は既存の Planner の出力を実行するだけであり、新しい解決ロジックを足さない。
 
-個々のタスク分解と進捗は superpowers の実装計画が持つ。この文書はフェーズの依存順序のみを定義する。
+個々のタスク分解と進捗は Linear プロジェクト [homux](https://linear.app/bellwood4486/project/homux-0dbb86b4f471) が持つ。上のフェーズが Milestone、各項目が issue に対応する。この文書はフェーズの依存順序のみを定義する。
 
 ---
 
