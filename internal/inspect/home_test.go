@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bellwood4486/homux/internal/env"
 	"github.com/bellwood4486/homux/internal/resolve"
 )
 
@@ -108,6 +109,38 @@ func TestAll_HomeScanDoesNotDescendIntoSymlinkedRoot(t *testing.T) {
 	want := []string{"stale .claude"}
 	if got := paths(states); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("states = %v, want %v", got, want)
+	}
+}
+
+// BEL-20 / INV-14: repo が走査起点の配下にある配置では、再帰が repo 自身に
+// 到達しうる。repo の中には決して降りず、repo 内パスを Target とする
+// TargetState を生成しない。
+func TestAll_HomeScanDoesNotDescendIntoRepoItself(t *testing.T) {
+	home := evalTempDir(t)
+	repo := filepath.Join(home, ".config", "dotfiles")
+	mkdirAll(t, repo)
+	e := env.Env{Home: home, Repo: repo}
+
+	// repo が ~/.config/dotfiles で、repo 内に .config/ghostty/config がある配置。
+	// repo のトップレベルに .config があるため、走査起点に ~/.config が含まれ、
+	// dir() がそこから再帰すると ~/.config/dotfiles（= repo 自身）に到達する。
+	writeFile(t, filepath.Join(repo, ".config", "ghostty", "config"), "x")
+	// repo 内に紛れ込んだ symlink。repo 配下を指しているので managed に見えてしまう。
+	// ガードが無ければ、これが repo 内パスを Target とする KindStale を生む。
+	symlink(t,
+		filepath.Join(repo, ".config", "ghostty", "config"),
+		filepath.Join(repo, ".config", "ghostty", "stray"),
+	)
+
+	states, err := All(e, Input{})
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+
+	for _, s := range states {
+		if strings.HasPrefix(s.Path(), ".config/dotfiles") {
+			t.Errorf("states に repo 内パスが含まれている: %v", paths(states))
+		}
 	}
 }
 

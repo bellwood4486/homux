@@ -62,6 +62,12 @@ func (s *homeScan) root(path string) {
 }
 
 func (s *homeScan) dir(path string) {
+	// repo が走査起点の配下にある配置（BEL-20）では、再帰がここで repo 自身に
+	// 到達しうる。repo の中には決して降りない（INV-14）。
+	if path == s.env.Repo {
+		return
+	}
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		s.fail(path, err)
