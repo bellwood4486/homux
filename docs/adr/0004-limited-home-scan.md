@@ -20,6 +20,8 @@ repo に .zshrc, .claude/, .config/ がある場合
 
 これにより「repo からディレクトリごと source を削除した」場合の残骸を検出できないが、**この検出漏れを仕様として受容する。**
 
+repo 自身が走査起点の配下にある配置（例: repo が `~/.config/dotfiles`）では、再帰が repo のディレクトリそのものに到達しうる。**repo の中には決して降りない。** repo 内の symlink を評価してしまうと、repo 配下を指す symlink が managed と誤判定され、repo 内パスを Target とする TargetState が生成されて INV-14 に抵触しかねない（BEL-20）。
+
 ## 却下した案
 
 ### `$HOME` 全体を walk する
