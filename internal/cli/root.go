@@ -74,6 +74,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newStatusCmd(flags))
 	root.AddCommand(newExplainCmd(flags))
 	root.AddCommand(newApplyCmd(flags))
+	root.AddCommand(newAddCmd(flags))
 
 	return root
 }

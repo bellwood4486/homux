@@ -124,7 +124,7 @@ func All(e env.Env, in Input) ([]TargetState, error) {
 func inspectResolution(e env.Env, r resolve.Resolution) TargetState {
 	s := TargetState{Resolution: r}
 
-	current, err := readCurrent(e.Repo, filepath.Join(e.Home, filepath.FromSlash(r.Target)))
+	current, err := ReadCurrent(e.Repo, filepath.Join(e.Home, filepath.FromSlash(r.Target)))
 	s.Current = current
 	if err != nil {
 		// #2 / #3: HOME を読めなければ状態を判定できない。
