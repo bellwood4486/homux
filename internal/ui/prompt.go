@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/bellwood4486/homux/internal/inspect"
 	"github.com/bellwood4486/homux/internal/plan"
 )
 
@@ -54,8 +55,13 @@ func (p *Prompter) ConfirmAction(a plan.Action) (bool, error) {
 // writeDetails は問いの前に「何が起きているのか」を示す（spec §12.4）。
 // 退避先を明示するのは INV-13 の要請である。
 func (p *Prompter) writeDetails(a plan.Action) {
-	fmt.Fprintf(p.out, "%s\n\n", headlineFor(a.Kind))
+	fmt.Fprintf(p.out, "%s\n\n", headlineFor(a))
 	p.writeField("target", a.Target)
+	// spec §12.4: target が symlink のときは target の次に現在のリンク先を出す。
+	// relink も「どこから どこへ」変わるのかをこの行で示す。
+	if a.From != "" {
+		p.writeField("current", a.From)
+	}
 	if a.LinkTo != "" {
 		p.writeField("desired", a.LinkTo)
 	}
@@ -68,10 +74,19 @@ func (p *Prompter) writeField(label, abs string) {
 	fmt.Fprintf(p.out, "  %s:\n    %s\n\n", label, displayAbsPath(p.home, abs))
 }
 
-func headlineFor(k plan.ActionKind) string {
-	switch k {
+// headlineFor は見出しを返す。Occupied の退避では「何が退避されるのか」が
+// y を打つ判断そのものなので、target の種類ごとに変える（spec §12.4）。
+func headlineFor(a plan.Action) string {
+	switch a.Kind {
 	case plan.ReplaceTarget:
-		return "Existing file detected:"
+		switch a.Current {
+		case inspect.CurrentDir:
+			return "Existing directory detected:"
+		case inspect.CurrentSymlink:
+			return "Existing symlink detected:"
+		default:
+			return "Existing file detected:"
+		}
 	case plan.Relink:
 		return "Symlink points to a different source:"
 	case plan.RemoveStaleSymlink:

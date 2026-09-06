@@ -12,12 +12,14 @@ import (
 
 const testHome = "/home/u"
 
+// spec §12.5 の出力例をそのまま検証する。
 func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
 	actions := []plan.Action{
 		{
 			Kind:    plan.ReplaceTarget,
 			Target:  testHome + "/.claude/settings.json",
 			LinkTo:  testHome + "/dotfiles/.claude/settings.json@@work",
+			Current: inspect.CurrentDir,
 			Backup:  testHome + "/.claude/settings.json.homux-bak.20260905-153000",
 			Confirm: true,
 		},
@@ -29,12 +31,15 @@ func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
 		{
 			Kind:    plan.RemoveStaleSymlink,
 			Target:  testHome + "/.config/old/config",
+			Current: inspect.CurrentSymlink,
 			Confirm: true,
 		},
 		{
 			Kind:    plan.Relink,
 			Target:  testHome + "/.vimrc",
 			LinkTo:  testHome + "/dotfiles/.vimrc@@work",
+			From:    testHome + "/dotfiles/.vimrc",
+			Current: inspect.CurrentSymlink,
 			Confirm: true,
 		},
 	}
@@ -47,18 +52,52 @@ func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
 		"  -> ~/dotfiles/.config/foo/config@@work\n" +
 		"\n" +
 		"Would ask before replacing:\n" +
-		"  ~/.claude/settings.json\n" +
+		"  ~/.claude/settings.json (directory)\n" +
 		"  -> ~/dotfiles/.claude/settings.json@@work\n" +
 		"\n" +
 		"Would relink:\n" +
 		"  ~/.vimrc\n" +
-		"  -> ~/dotfiles/.vimrc@@work\n" +
+		"  ~/dotfiles/.vimrc -> ~/dotfiles/.vimrc@@work\n" +
 		"\n" +
 		"Would remove stale symlink:\n" +
 		"  ~/.config/old/config\n" +
 		"\n"
 	if got := buf.String(); got != want {
 		t.Errorf("RenderPlan:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// spec §12.5: 注記は「驚きのある退避」を先に見せるためにあり、既定の期待である
+// 通常ファイルには添えない。
+func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
+	tests := []struct {
+		current inspect.CurrentKind
+		want    string
+	}{
+		{inspect.CurrentFile, "  ~/.vimrc\n"},
+		{inspect.CurrentDir, "  ~/.vimrc (directory)\n"},
+		{inspect.CurrentSymlink, "  ~/.vimrc (symlink)\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.current.String(), func(t *testing.T) {
+			var buf bytes.Buffer
+			RenderPlan(&buf, testHome, []plan.Action{{
+				Kind:    plan.ReplaceTarget,
+				Target:  testHome + "/.vimrc",
+				LinkTo:  testHome + "/dotfiles/.vimrc@@work",
+				Current: tt.current,
+				Backup:  testHome + "/.vimrc.homux-bak.20260905-153000",
+				Confirm: true,
+			}})
+
+			want := "Would ask before replacing:\n" +
+				tt.want +
+				"  -> ~/dotfiles/.vimrc@@work\n" +
+				"\n"
+			if got := buf.String(); got != want {
+				t.Errorf("RenderPlan:\ngot:\n%s\nwant:\n%s", got, want)
+			}
+		})
 	}
 }
 

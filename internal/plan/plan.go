@@ -62,6 +62,15 @@ type Action struct {
 	// LinkTo はこれから張るリンク先の絶対パス。RemoveStaleSymlink では空である
 	// （「今指している先」を入れると Kind によって意味が変わってしまうため）。
 	LinkTo string
+	// From は今のリンク先の絶対パス。Relink と、symlink の ReplaceTarget でのみ
+	// 非空である。
+	From string
+	// Current は Target が今何であるか（File / Dir / Symlink）。
+	//
+	// From と Current は exec が使わない。ui が確認プロンプトの文言（spec §12.4）と
+	// dry-run の注記（spec §12.5）を決めるためだけに持つ。ui に TargetState を
+	// 引き直させないための経路である（docs/design.md §3）。
+	Current inspect.CurrentKind
 	// Backup は ReplaceTarget の退避先の絶対パス。ReplaceTarget では必ず
 	// 非空であり（INV-13）、それ以外の Kind では常に空である。
 	Backup string
@@ -147,7 +156,7 @@ func All(e env.Env, in Input) Plan {
 func actionFor(e env.Env, s inspect.TargetState, target string, now time.Time) (Action, bool) {
 	switch s.Kind {
 	case inspect.KindMissing:
-		return Action{Kind: CreateSymlink, Target: target, LinkTo: sourcePath(e, s)}, true
+		return Action{Kind: CreateSymlink, Target: target, LinkTo: sourcePath(e, s), Current: s.Current.Kind}, true
 
 	case inspect.KindOccupied:
 		// INV-13: unmanaged な target を黙って上書きしない。退避先は Target から
@@ -156,6 +165,8 @@ func actionFor(e env.Env, s inspect.TargetState, target string, now time.Time) (
 			Kind:    ReplaceTarget,
 			Target:  target,
 			LinkTo:  sourcePath(e, s),
+			From:    currentLink(s),
+			Current: s.Current.Kind,
 			Backup:  backupPath(target, now),
 			Confirm: true,
 		}, true
@@ -165,7 +176,14 @@ func actionFor(e env.Env, s inspect.TargetState, target string, now time.Time) (
 			// 種類1。managed symlink の張り替えなので退避は不要である
 			// （INV-13 は unmanaged な HOME ファイルの保護であり、
 			// managed かどうかの判定は Current.Managed 一本である。ADR 0003）。
-			return Action{Kind: Relink, Target: target, LinkTo: sourcePath(e, s), Confirm: true}, true
+			return Action{
+				Kind:    Relink,
+				Target:  target,
+				LinkTo:  sourcePath(e, s),
+				From:    currentLink(s),
+				Current: s.Current.Kind,
+				Confirm: true,
+			}, true
 		}
 		// 種類2。inspect は managed symlink のときしか Selected 無しの Stale を
 		// 立てない（internal/inspect/inspect.go）。破れていれば symlink 以外を
@@ -173,12 +191,21 @@ func actionFor(e env.Env, s inspect.TargetState, target string, now time.Time) (
 		if s.Current.Kind != inspect.CurrentSymlink || !s.Current.Managed {
 			panic(fmt.Sprintf("plan: stale target %s is not a managed symlink (%v)", target, s.Current.Kind))
 		}
-		return Action{Kind: RemoveStaleSymlink, Target: target, Confirm: true}, true
+		return Action{Kind: RemoveStaleSymlink, Target: target, Current: s.Current.Kind, Confirm: true}, true
 
 	default:
 		// Linked / Inactive / Error は何もしない。
 		return Action{}, false
 	}
+}
+
+// currentLink は今のリンク先の絶対パスを返す。symlink 以外では空である
+// （docs/design.md §3 の From の定義）。
+func currentLink(s inspect.TargetState) string {
+	if s.Current.Kind != inspect.CurrentSymlink {
+		return ""
+	}
+	return s.Current.LinkAbs
 }
 
 // sourcePath は選択された source の絶対パスを返す。
