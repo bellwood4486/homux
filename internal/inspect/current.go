@@ -64,9 +64,13 @@ func (e *AncestorNotDirError) Error() string {
 	return fmt.Sprintf("%s is not a directory", e.Path)
 }
 
-// readCurrent は target（絶対パス）の HOME 上の実状態を読む。
+// ReadCurrent は target（絶対パス）の HOME 上の実状態を読む。
 // HOME を読むだけで、一切変更しない。
-func readCurrent(repo, target string) (Current, error) {
+//
+// エクスポートしているのは cli/add（spec §12.6）が同じ判定を再実装しないため
+// である。「managed かどうか」の唯一のルール（ADR 0003）を inspect の外で
+// 重複させない。
+func ReadCurrent(repo, target string) (Current, error) {
 	fi, err := os.Lstat(target)
 	if err != nil {
 		if os.IsNotExist(err) {

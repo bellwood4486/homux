@@ -9,9 +9,9 @@ import (
 func TestReadCurrent_Absent(t *testing.T) {
 	repo, home := evalTempDir(t), evalTempDir(t)
 
-	got, err := readCurrent(repo, filepath.Join(home, ".zshrc"))
+	got, err := ReadCurrent(repo, filepath.Join(home, ".zshrc"))
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Kind != CurrentAbsent {
 		t.Errorf("Kind = %v, want CurrentAbsent", got.Kind)
@@ -22,9 +22,9 @@ func TestReadCurrent_RegularFile(t *testing.T) {
 	repo, home := evalTempDir(t), evalTempDir(t)
 	writeFile(t, filepath.Join(home, ".zshrc"), "x")
 
-	got, err := readCurrent(repo, filepath.Join(home, ".zshrc"))
+	got, err := ReadCurrent(repo, filepath.Join(home, ".zshrc"))
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Kind != CurrentFile {
 		t.Errorf("Kind = %v, want CurrentFile", got.Kind)
@@ -35,9 +35,9 @@ func TestReadCurrent_Directory(t *testing.T) {
 	repo, home := evalTempDir(t), evalTempDir(t)
 	mkdirAll(t, filepath.Join(home, ".claude"))
 
-	got, err := readCurrent(repo, filepath.Join(home, ".claude"))
+	got, err := ReadCurrent(repo, filepath.Join(home, ".claude"))
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Kind != CurrentDir {
 		t.Errorf("Kind = %v, want CurrentDir", got.Kind)
@@ -53,9 +53,9 @@ func TestReadCurrent_ManagedSymlinkKeepsRawLink(t *testing.T) {
 	target := filepath.Join(home, ".zshrc")
 	symlink(t, "../dotfiles/.zshrc", target)
 
-	got, err := readCurrent(repo, target)
+	got, err := ReadCurrent(repo, target)
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Kind != CurrentSymlink {
 		t.Fatalf("Kind = %v, want CurrentSymlink", got.Kind)
@@ -81,9 +81,9 @@ func TestReadCurrent_DanglingSymlinkIntoRepoIsManaged(t *testing.T) {
 	target := filepath.Join(home, ".zshrc")
 	symlink(t, filepath.Join(repo, ".zshrc"), target) // リンク先は存在しない
 
-	got, err := readCurrent(repo, target)
+	got, err := ReadCurrent(repo, target)
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Kind != CurrentSymlink {
 		t.Fatalf("Kind = %v, want CurrentSymlink", got.Kind)
@@ -103,9 +103,9 @@ func TestReadCurrent_SymlinkOutsideRepoIsUnmanaged(t *testing.T) {
 	target := filepath.Join(home, ".zshrc")
 	symlink(t, filepath.Join(base, "elsewhere", ".zshrc"), target)
 
-	got, err := readCurrent(repo, target)
+	got, err := ReadCurrent(repo, target)
 	if err != nil {
-		t.Fatalf("readCurrent: %v", err)
+		t.Fatalf("ReadCurrent: %v", err)
 	}
 	if got.Managed {
 		t.Error("Managed = true, want false")
@@ -119,7 +119,7 @@ func TestReadCurrent_AncestorIsRegularFile(t *testing.T) {
 	repo, home := evalTempDir(t), evalTempDir(t)
 	writeFile(t, filepath.Join(home, ".config"), "not a directory")
 
-	_, err := readCurrent(repo, filepath.Join(home, ".config", "foo", "config"))
+	_, err := ReadCurrent(repo, filepath.Join(home, ".config", "foo", "config"))
 
 	var notDir *AncestorNotDirError
 	if !errors.As(err, &notDir) {
