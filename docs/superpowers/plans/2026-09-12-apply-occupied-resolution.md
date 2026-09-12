@@ -498,13 +498,7 @@ EOF
 
 `internal/ui/prompt_test.go` の `NewPrompter(...)` 呼び出しをすべて `NewPrompter(reader, &out, testHome, testRepo, "")` に変える（`testRepo` は新規定数、後述）。`ConfirmAction` の戻り値を受ける箇所を `ok` (bool) から `d exec.Decision` に変え、比較を `d.Resolution == exec.ResolutionKeepRepo` / `d.Resolution == exec.ResolutionSkip` にする。
 
-まず `testRepo` を定義する。`internal/ui/apply_test.go` の先頭付近に `testHome` の定義があるはずなので、その隣に追加:
-
-```go
-const testRepo = "/home/user/dotfiles"
-```
-
-(実際の `testHome` の値を確認し、`testRepo` は `testHome + "/dotfiles"` のような衝突しない適当な絶対パスにする。)
+`testRepo` は新規定義しない。`internal/ui/apply_test.go` に既に `const testRepo = testHome + "/dotfiles"`（`testHome = "/home/u"` なので `"/home/u/dotfiles"`）が定義済みで、同一パッケージ（`ui`）内なので `prompt_test.go` からそのまま参照できる。`replaceAction.LinkTo`（`testHome + "/dotfiles/.claude/settings.json@@work"`）とも整合する値である。
 
 `TestPrompter_ReplaceTargetShowsBackupPath` を例に書き換える:
 
