@@ -72,7 +72,7 @@ func runAdd(cmd *cobra.Command, flags *globalFlags, args []string, opts addOptio
 	}
 
 	out := cmd.OutOrStdout()
-	ui.RenderAddPlan(out, flags.colorOut, ws.env.Home, items)
+	ui.RenderAddPlan(out, flags.colorOut, ws.env.Home, ws.env.Repo, items)
 
 	if !interactive {
 		return errors.New(

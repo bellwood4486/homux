@@ -47,12 +47,10 @@ func applyFixture(t *testing.T) (home, repo string) {
 
 func wantApplyPlan(repo string) string {
 	return "Would create symlink:\n" +
-		"  ~/.config/foo/config\n" +
-		"  -> " + repo + "/.config/foo/config\n" +
+		"  ~/.config/foo/config -> <repo>/.config/foo/config\n" +
 		"\n" +
 		"Would ask before replacing:\n" +
-		"  ~/.claude/settings.json\n" +
-		"  -> " + repo + "/.claude/settings.json@@work\n" +
+		"  ~/.claude/settings.json -> <repo>/.claude/settings.json@@work\n" +
 		"\n" +
 		"Would relink:\n" +
 		"  ~/.vimrc\n" +

@@ -10,7 +10,10 @@ import (
 	"github.com/bellwood4486/homux/internal/resolve"
 )
 
-const testHome = "/home/u"
+const (
+	testHome = "/home/u"
+	testRepo = testHome + "/dotfiles"
+)
 
 // spec §12.5 の出力例をそのまま検証する。
 func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
@@ -45,15 +48,13 @@ func TestRenderPlan_GroupsActionsByKind(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderPlan(&buf, ColorOff, testHome, actions)
+	RenderPlan(&buf, ColorOff, testHome, testRepo, actions)
 
 	want := "Would create symlink:\n" +
-		"  ~/.config/foo/config\n" +
-		"  -> ~/dotfiles/.config/foo/config@@work\n" +
+		"  ~/.config/foo/config -> <repo>/.config/foo/config@@work\n" +
 		"\n" +
 		"Would ask before replacing:\n" +
-		"  ~/.claude/settings.json (directory)\n" +
-		"  -> ~/dotfiles/.claude/settings.json@@work\n" +
+		"  ~/.claude/settings.json (directory) -> <repo>/.claude/settings.json@@work\n" +
 		"\n" +
 		"Would relink:\n" +
 		"  ~/.vimrc\n" +
@@ -74,14 +75,14 @@ func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
 		current inspect.CurrentKind
 		want    string
 	}{
-		{inspect.CurrentFile, "  ~/.vimrc\n"},
-		{inspect.CurrentDir, "  ~/.vimrc (directory)\n"},
-		{inspect.CurrentSymlink, "  ~/.vimrc (symlink)\n"},
+		{inspect.CurrentFile, "  ~/.vimrc -> <repo>/.vimrc@@work\n"},
+		{inspect.CurrentDir, "  ~/.vimrc (directory) -> <repo>/.vimrc@@work\n"},
+		{inspect.CurrentSymlink, "  ~/.vimrc (symlink) -> <repo>/.vimrc@@work\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.current.String(), func(t *testing.T) {
 			var buf bytes.Buffer
-			RenderPlan(&buf, ColorOff, testHome, []plan.Action{{
+			RenderPlan(&buf, ColorOff, testHome, testRepo, []plan.Action{{
 				Kind:    plan.ReplaceTarget,
 				Target:  testHome + "/.vimrc",
 				LinkTo:  testHome + "/dotfiles/.vimrc@@work",
@@ -92,7 +93,6 @@ func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
 
 			want := "Would ask before replacing:\n" +
 				tt.want +
-				"  -> ~/dotfiles/.vimrc@@work\n" +
 				"\n"
 			if got := buf.String(); got != want {
 				t.Errorf("RenderPlan:\ngot:\n%s\nwant:\n%s", got, want)
@@ -103,7 +103,7 @@ func TestRenderPlan_ReplaceNoteOnlyForDirAndSymlink(t *testing.T) {
 
 func TestRenderPlan_NoActionsWritesNothing(t *testing.T) {
 	var buf bytes.Buffer
-	RenderPlan(&buf, ColorOff, testHome, nil)
+	RenderPlan(&buf, ColorOff, testHome, testRepo, nil)
 
 	if got := buf.String(); got != "" {
 		t.Errorf("RenderPlan with no actions wrote %q, want empty", got)
@@ -121,11 +121,10 @@ func TestRenderDryRun_EndsWithNoChangesMade(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderDryRun(&buf, ColorOff, testHome, p)
+	RenderDryRun(&buf, ColorOff, testHome, testRepo, p)
 
 	want := "Would create symlink:\n" +
-		"  ~/.zshrc\n" +
-		"  -> ~/dotfiles/.zshrc\n" +
+		"  ~/.zshrc -> <repo>/.zshrc\n" +
 		"\n" +
 		"No changes made.\n"
 	if got := buf.String(); got != want {
@@ -135,7 +134,7 @@ func TestRenderDryRun_EndsWithNoChangesMade(t *testing.T) {
 
 func TestRenderDryRun_NoActions(t *testing.T) {
 	var buf bytes.Buffer
-	RenderDryRun(&buf, ColorOff, testHome, plan.Plan{})
+	RenderDryRun(&buf, ColorOff, testHome, testRepo, plan.Plan{})
 
 	if got, want := buf.String(), "No changes made.\n"; got != want {
 		t.Errorf("RenderDryRun:\ngot:\n%s\nwant:\n%s", got, want)
@@ -154,7 +153,7 @@ func TestRenderDryRun_ShowsDiagnosticsForErrorStates(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderDryRun(&buf, ColorOff, testHome, p)
+	RenderDryRun(&buf, ColorOff, testHome, testRepo, p)
 
 	want := "No changes made.\n" +
 		"\n" +
