@@ -153,6 +153,35 @@ type Action struct {
 
 退避先の timestamp に使う時刻は `Input.Now` で受け取る。`plan` は `time.Now()` を呼ばない。`MkdirAll`（spec §4.1）は独立した `Action` にせず、`CreateSymlink` / `Relink` / `ReplaceTarget` の暗黙の一部として `exec` が行う。
 
+### 3.1 Occupied の解決策（`exec.Decision`）
+
+Occupied（`ReplaceTarget`）だけは、確認の答えが単純な可否では済まない（spec §12.4.1）。`exec.Confirm` は `bool` ではなく `Decision` を返す。
+
+```go
+// exec
+type ConflictResolution int
+
+const (
+    ResolutionSkip ConflictResolution = iota // n（既定）
+    ResolutionKeepRepo                        // r：従来の退避 + symlink
+    ResolutionAdoptCommon                     // h：HOME 実体を Selected の source へ
+    ResolutionAdoptProfile                    // p：HOME 実体を target@@<profile> へ
+)
+
+type Decision struct {
+    Resolution ConflictResolution
+    Profile    string // ResolutionAdoptProfile のときだけ使う
+}
+
+type Confirm func(plan.Action) (Decision, error)
+```
+
+`plan.Action` / `plan.ActionKind` はここでは分岐しない。`plan` は今まで通り Occupied を `ReplaceTarget` 1 種類だけに変換し、純粋なままである。「repo優先 / HOME優先(共通) / HOME優先(profile) / 何もしない」という対話結果への分岐は `exec` 内の enum + `switch` で行う（ADR 0015）。`plan` に profile 一覧や selector 構文の組み立てを持ち込まないためである。
+
+`h`/`p` の実行（`internal/exec` の `adopt`）は `add`（spec §12.6）と同じ「repo へ move → 元の位置に symlink」を行う。取り込み先の repo パスは、`h` なら `Action.LinkTo` をそのまま使い、`p` なら `internal/selector` の逆変換ヘルパー（HOME 相対パス + profile 名 → `foo@@work` 形式の repo 相対パス）で組み立てる。対象が repo 外を指す symlink（`Action.Current == inspect.CurrentSymlink`）のときは `adopt` がエラーを返す。`ui` が `h`/`p` を選択肢に出さない設計だが、`exec` 単体でも不整合として弾く。
+
+Relink・RemoveStaleSymlink の確認は従来通り 2 値のみで、`Decision` は `ResolutionKeepRepo`/`ResolutionSkip` だけを使う。
+
 ---
 
 ## 4. 環境の受け渡し
@@ -305,7 +334,7 @@ Phase 5 — profile 管理
  16. profile delete（参照の列挙と selector の rewrite）
 ```
 
-Phase 2 の完了時点で「壊さないツール」として実用可能になる。Phase 3 以降は既存の Planner の出力を実行するだけであり、新しい解決ロジックを足さない。
+Phase 2 の完了時点で「壊さないツール」として実用可能になる。Phase 3 以降は既存の Planner の出力を実行するだけであり、新しい解決ロジックを足さない。これは V1 の初期実装における前提であり、V1 完成後の機能追加（例: Occupied の解決策選択、ADR 0015）でこの前提を変えることはありうる。
 
 個々のタスク分解と進捗は Linear プロジェクト [homux](https://linear.app/bellwood4486/project/homux-0dbb86b4f471) が持つ。上のフェーズが Milestone、各項目が issue に対応する。この文書はフェーズの依存順序のみを定義する。
 
