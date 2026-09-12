@@ -5,6 +5,8 @@ package ui
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/bellwood4486/homux/internal/exec"
 	"github.com/bellwood4486/homux/internal/inspect"
@@ -19,20 +21,35 @@ type planGroup struct {
 	header string
 	// note は target 行に添える注記。空なら添えない。
 	note func(plan.Action) string
-	// body は target 行に続く行。nil なら target 行だけを出す。
+	// right は target 行の続きに揃えて出す "-> リンク先" の右辺。
+	// ブロック内で target 列の幅を揃える表形式で描く（CreateSymlink /
+	// ReplaceTarget）。body と同時には使わない。
+	right func(repo string, a plan.Action) string
+	// body は target 行に続く別行。nil かつ right も nil なら target 行だけを
+	// 出す（RemoveStaleSymlink）。
 	body func(home string, a plan.Action) string
 }
 
 var planGroups = []planGroup{
-	{plan.CreateSymlink, "Would create symlink:", nil, desiredLine},
-	{plan.ReplaceTarget, "Would ask before replacing:", currentKindNote, desiredLine},
-	{plan.Relink, "Would relink:", nil, transitionLine},
-	{plan.RemoveStaleSymlink, "Would remove stale symlink:", nil, nil},
+	{kind: plan.CreateSymlink, header: "Would create symlink:", right: desiredRight},
+	{kind: plan.ReplaceTarget, header: "Would ask before replacing:", note: currentKindNote, right: desiredRight},
+	{kind: plan.Relink, header: "Would relink:", body: transitionLine},
+	{kind: plan.RemoveStaleSymlink, header: "Would remove stale symlink:"},
 }
 
-// desiredLine はこれから張るリンク先を示す。
-func desiredLine(home string, a plan.Action) string {
-	return "  -> " + displayAbsPath(home, a.LinkTo)
+// desiredRight はこれから張るリンク先を、repo 相対の短い形で示す。
+func desiredRight(repo string, a plan.Action) string {
+	return displayRepoRelPath(repo, a.LinkTo)
+}
+
+// displayRepoRelPath は repo 配下の絶対パスを "<repo>/相対パス" の形で示す。
+// repo 配下でなければ絶対パスをそのまま返す。
+func displayRepoRelPath(repo, abs string) string {
+	rel, err := filepath.Rel(repo, abs)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return abs
+	}
+	return "<repo>/" + filepath.ToSlash(rel)
 }
 
 // transitionLine はリンク先が「どこから どこへ」変わるのかを 1 行で示す
@@ -60,9 +77,12 @@ func currentKindNote(a plan.Action) string {
 // dry-run（spec §12.5）と apply 冒頭のサマリの両方がこれを使う。「実行すると
 // 何をするか」の表現を 1 箇所に置くためである。
 //
+// repo は right（CreateSymlink / ReplaceTarget のリンク先）を "<repo>/..." に
+// 短縮するために使う。
+//
 // pal が ColorOff なら出力は色を持たない従来通りの文字列である。ReplaceTarget
 // （退避を伴う）と Relink（遷移）の見出しを Warn で示す。
-func RenderPlan(w io.Writer, pal Palette, home string, actions []plan.Action) {
+func RenderPlan(w io.Writer, pal Palette, home, repo string, actions []plan.Action) {
 	for _, g := range planGroups {
 		var matched []plan.Action
 		for _, a := range actions {
@@ -74,17 +94,49 @@ func RenderPlan(w io.Writer, pal Palette, home string, actions []plan.Action) {
 			continue
 		}
 		fmt.Fprintln(w, planGroupHeader(pal, g))
-		for _, a := range matched {
-			note := ""
-			if g.note != nil {
-				note = g.note(a)
-			}
-			fmt.Fprintf(w, "  %s%s\n", displayAbsPath(home, a.Target), note)
-			if g.body != nil {
-				fmt.Fprintln(w, g.body(home, a))
-			}
+		if g.right != nil {
+			renderPlanTable(w, home, repo, g, matched)
+		} else {
+			renderPlanLines(w, home, g, matched)
 		}
 		fmt.Fprintln(w)
+	}
+}
+
+// renderPlanTable は 1 件 1 行の表形式で書く。target 列（+ note）の幅を
+// ブロック内で揃え、同じ行に "-> " + g.right(...) を続ける。2 行に分かれて
+// いた target / リンク先が対応して見えないという指摘を受けての形式である。
+func renderPlanTable(w io.Writer, home, repo string, g planGroup, matched []plan.Action) {
+	left := make([]string, len(matched))
+	width := 0
+	for i, a := range matched {
+		l := displayAbsPath(home, a.Target)
+		if g.note != nil {
+			l += g.note(a)
+		}
+		left[i] = l
+		if len(l) > width {
+			width = len(l)
+		}
+	}
+	for i, a := range matched {
+		fmt.Fprintf(w, "  %-*s -> %s\n", width, left[i], g.right(repo, a))
+	}
+}
+
+// renderPlanLines は target 行（+ 任意で body の別行）を並べる、表以前からの
+// 形式である。Relink（遷移の表現が target/リンク先の対応と異なる）と
+// RemoveStaleSymlink（右辺が無い）が使う。
+func renderPlanLines(w io.Writer, home string, g planGroup, matched []plan.Action) {
+	for _, a := range matched {
+		note := ""
+		if g.note != nil {
+			note = g.note(a)
+		}
+		fmt.Fprintf(w, "  %s%s\n", displayAbsPath(home, a.Target), note)
+		if g.body != nil {
+			fmt.Fprintln(w, g.body(home, a))
+		}
 	}
 }
 
@@ -101,8 +153,8 @@ func planGroupHeader(pal Palette, g planGroup) string {
 
 // RenderDryRun は homux apply --dry-run の出力を書き出す（spec §12.5）。
 // 何も実行しないことを明示し、構造エラーは status と同じ診断ブロックで示す。
-func RenderDryRun(w io.Writer, pal Palette, home string, p plan.Plan) {
-	RenderPlan(w, pal, home, p.Actions)
+func RenderDryRun(w io.Writer, pal Palette, home, repo string, p plan.Plan) {
+	RenderPlan(w, pal, home, repo, p.Actions)
 	fmt.Fprintln(w, "No changes made.")
 	writeDiagnostics(w, pal, p.States)
 }

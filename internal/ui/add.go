@@ -9,20 +9,27 @@ import (
 )
 
 // RenderAddPlan は取り込み対象を「move してから symlink を作る」の 2 段に
-// 分けて表示する（spec §12.6）。apply の RenderPlan と同じ「種類ごとに
-// まとめる」表現を踏襲する。
-func RenderAddPlan(w io.Writer, pal Palette, home string, items []exec.AddItem) {
+// 分けて表示する（spec §12.6）。apply の RenderPlan と同じ、target 列の幅を
+// 揃えた 1 行 1 対応の表形式を踏襲する。
+func RenderAddPlan(w io.Writer, pal Palette, home, repo string, items []exec.AddItem) {
+	left := make([]string, len(items))
+	width := 0
+	for i, it := range items {
+		left[i] = displayAbsPath(home, it.Target)
+		if len(left[i]) > width {
+			width = len(left[i])
+		}
+	}
+
 	fmt.Fprintln(w, "Would move into the repository:")
-	for _, it := range items {
-		fmt.Fprintf(w, "  %s\n", displayAbsPath(home, it.Target))
-		fmt.Fprintf(w, "  -> %s\n", displayAbsPath(home, it.RepoPath))
+	for i, it := range items {
+		fmt.Fprintf(w, "  %-*s -> %s\n", width, left[i], displayRepoRelPath(repo, it.RepoPath))
 	}
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "Would create symlink:")
-	for _, it := range items {
-		fmt.Fprintf(w, "  %s\n", displayAbsPath(home, it.Target))
-		fmt.Fprintf(w, "  -> %s\n", displayAbsPath(home, it.RepoPath))
+	for i, it := range items {
+		fmt.Fprintf(w, "  %-*s -> %s\n", width, left[i], displayRepoRelPath(repo, it.RepoPath))
 		if it.Fork {
 			fmt.Fprintln(w, "  "+pal.Warn("(forks the existing common source)"))
 		}

@@ -53,7 +53,7 @@ func runApply(cmd *cobra.Command, flags *globalFlags, opts applyOptions, interac
 	out := cmd.OutOrStdout()
 
 	if opts.dryRun {
-		ui.RenderDryRun(out, flags.colorOut, ws.env.Home, p)
+		ui.RenderDryRun(out, flags.colorOut, ws.env.Home, ws.env.Repo, p)
 		if p.Errors() > 0 {
 			return silentExitError{}
 		}
@@ -62,7 +62,7 @@ func runApply(cmd *cobra.Command, flags *globalFlags, opts applyOptions, interac
 
 	// 最初の確認を出す前に全体像を見せる。--yes の非対話実行でも
 	// 「何をしたか」がログに残る。
-	ui.RenderPlan(out, flags.colorOut, ws.env.Home, p.Actions)
+	ui.RenderPlan(out, flags.colorOut, ws.env.Home, ws.env.Repo, p.Actions)
 
 	confirm, err := confirmFunc(cmd, ws.env.Home, p.Actions, opts, interactive)
 	if err != nil {
