@@ -575,12 +575,27 @@ HOME を desired state に合わせる。**ファイルの生成・レンダリ�
 | 状態 | 動作 |
 |---|---|
 | Missing | 確認なしで symlink を作成する |
-| Occupied | 確認のうえ、既存の target を退避してから symlink を作成する |
+| Occupied | 確認のうえ、4つの解決策から選ぶ（既定は何もしない）。§12.4.1 |
 | Stale (種類1) | 確認のうえ relink する |
 | Stale (種類2) | 確認のうえ symlink を削除する |
 | Error | **その target をスキップし、残りの適用を続行する**。最後にスキップ件数を表示し、終了コード `1` を返す |
 
-**Occupied の退避**: 既存の target は同一ディレクトリに `<name>.homux-bak.<timestamp>` へ rename して退避してから symlink を張る。プロンプトに退避先を明示する。
+#### 12.4.1 Occupied の解決策
+
+Occupied（unmanaged な HOME 上の実体があり、repo 側には対応する source が既にある状態）では、対話で 4 つの解決策から 1 つを選ぶ。
+
+| キー | 解決策 | 動作 |
+|---|---|---|
+| `r` | repo 優先 | 既存の HOME 側の実体を退避してから、repo 側の内容で symlink を作る（従来の唯一の動作） |
+| `h` | HOME 優先（共通） | HOME 側の実体を、今解決されている source（profile 専用でもそのまま）へ move し、そこへ symlink を張る |
+| `p` | HOME 優先（profile 専用） | HOME 側の実体を `target@@<profile>` へ move し、そこへ symlink を張る。profile 名は入力させ、既定値はそのとき有効なアクティブ profile とする |
+| `n`（既定） | 何もしない | target は変更されない。選択は保存されない（INV-12） |
+
+対象が repo 外を指す symlink の場合、`h`/`p` は選択肢に出さない（`add` の spec §12.6 と同じ理由。symlink のリンク先の実体をどこまで安全に move してよいか判断できないため）。この場合 `r`/`n` の 2 択になる。
+
+アクティブな profile が無い場合、`p` は選択肢に出さない（`target@@<profile>` を作るための profile 名が無いため）。この場合 `r`/`h`/`n` の 3 択になる。
+
+**`r`（repo 優先）の退避**: 既存の target は同一ディレクトリに `<name>.homux-bak.<timestamp>` へ rename して退避してから symlink を張る。プロンプトに退避先を明示する。
 
 退避の対象は 3 種類あり、いずれも同じ規則で退避する。
 
@@ -591,6 +606,8 @@ HOME を desired state に合わせる。**ファイルの生成・レンダリ�
 | repo 外を指す symlink | symlink 本体のみ。リンク先の実体は動かさない | `Existing symlink detected:` |
 
 rename であるため、ディレクトリの中身がどれだけ多くても退避の費用は変わらず、内容もパーミッションもそのまま残る。
+
+**`h`/`p`（HOME 優先）の取り込み**: HOME 側の実体を repo 側へ rename（同一ファイルシステム内の move）し、元の場所に symlink を張り直す。動作は `add`（spec §12.6）の「repo へ move → 元の位置に symlink を作成」と同じである。取り込み先に同名の source が既に存在する場合は、退避を作らず黙って上書きする。元の内容の保全は git 履歴に委ねる（ADR 0015）。
 
 ```text
 Existing file detected:
@@ -604,10 +621,18 @@ Existing file detected:
   backup:
     ~/.claude/settings.json.homux-bak.20260905-153000
 
-Replace it? [y/N]:
+How do you want to resolve this?
+  [r] keep repo version, back up HOME file
+  [h] adopt HOME file into repo (common source)
+  [p] adopt HOME file into repo (profile-specific source)
+  [n] skip (default)
+
+Choice [r/h/p/N]:
 ```
 
-target が symlink の場合は、`target` の次に現在のリンク先を `current` として出す。何が退避されるのかは `y` を打つ判断そのものであるため、見出しと項目は上の表に従って target の種類ごとに変える。
+`p` を選んだ場合は続けて `profile name [work]:` を出し、空 Enter でアクティブ profile を使う。
+
+target が symlink の場合は、`target` の次に現在のリンク先を `current` として出す。何が退避されるのかは `r` を打つ判断そのものであるため、見出しと項目は上の表に従って target の種類ごとに変える。
 
 **退避先の衝突**: timestamp は秒単位である。退避先が既に存在する場合は、**その target を変更せずエラーで停止する**（後述の「実行時の失敗」）。空いている名前を探して退避先をずらすことはしない。退避先は plan が決めるものであり、dry-run が示した退避先と実際の退避先は常に一致する（ADR 0012）。
 
@@ -615,7 +640,7 @@ target が symlink の場合は、`target` の次に現在のリンク先を `cu
 
 `n` を選んだ場合、target は変更されず、その選択は保存されない。conflict が残っている限り次回の `apply` でも再度確認する（INV-12）。
 
-**削除するのは symlink のみである。** 通常の `apply` が repository 内の source file を削除することはない（INV-14）。
+**削除するのは symlink のみである。** 通常の `apply` が repository 内の source file を削除することはない（INV-14）。repository 内の source file を書き換えるのは、Occupied の対話で `h`/`p`（HOME 優先）を明示的に選んだときに限る（INV-17）。
 
 **「スキップして続行」と「停止」の関係**: apply が正常に完了しない理由には 2 つの層があり、扱いが異なる。
 
@@ -838,6 +863,7 @@ rewrite も削除 plan に表示する。現在の PC が削除対象 profile �
 | **INV-14** | 通常の `apply` で repository 内の source file を削除しない |
 | **INV-15** | `profile rename` は repository 全体の参照を整合的に更新し、衝突時に部分適用を残さない |
 | **INV-16** | `@@` suffix を除いた repo 上のファイル名は、常に HOME 上のファイル名と一致する |
+| **INV-17** | `apply` が repository 内の source file を書き換えるのは、Occupied の対話で HOME 優先（`h`/`p`）を明示的に選んだときに限る |
 
 ---
 

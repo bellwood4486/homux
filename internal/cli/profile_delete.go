@@ -111,7 +111,7 @@ func runProfileDelete(cmd *cobra.Command, flags *globalFlags, name string, inter
 		return errors.New(
 			"confirmation is required, but this is not an interactive terminal: homux profile delete always asks for confirmation")
 	}
-	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home).Confirm("Apply?")
+	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home, "", "").Confirm("Apply?")
 	if err != nil {
 		return err
 	}

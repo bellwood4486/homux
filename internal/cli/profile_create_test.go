@@ -33,10 +33,19 @@ func selects(got *[]string, want ...string) forkSelector {
 	}
 }
 
+// setupCreateRepo は repo を作り、HOME/XDG_CONFIG_HOME を隔離する。これが
+// ないと実行環境の実際の local config（$HOME/.config/homux/config.toml）を
+// 読みに行ってしまい、そこに書かれた active profile 次第でテストが
+// 不安定になる（runProfileCreate は loadWorkspace 経由でこれを読む）。
 func setupCreateRepo(t *testing.T, toml string) string {
 	t.Helper()
 	repo := evalTempDir(t)
 	writeFile(t, filepath.Join(repo, ".homux.toml"), toml)
+
+	home := evalTempDir(t)
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+
 	return repo
 }
 

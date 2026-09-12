@@ -134,6 +134,40 @@ func TestValidProfileName(t *testing.T) {
 	}
 }
 
+func TestBuildName(t *testing.T) {
+	tests := []struct {
+		base    string
+		profile string
+		want    string
+	}{
+		{".claude/settings.json", "work", ".claude/settings.json@@work"},
+		{".vimrc", "personal", ".vimrc@@personal"},
+		{"tunnel@.service", "work", "tunnel@.service@@work"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.base+"|"+tt.profile, func(t *testing.T) {
+			if got := BuildName(tt.base, tt.profile); got != tt.want {
+				t.Errorf("BuildName(%q, %q) = %q, want %q", tt.base, tt.profile, got, tt.want)
+			}
+		})
+	}
+}
+
+// BuildName は ParseName の逆であること。
+func TestBuildName_RoundTripsWithParseName(t *testing.T) {
+	name := BuildName(".claude/settings.json", "work")
+	base, sel, err := ParseName(name)
+	if err != nil {
+		t.Fatalf("ParseName(%q): %v", name, err)
+	}
+	if base != ".claude/settings.json" {
+		t.Errorf("base = %q, want %q", base, ".claude/settings.json")
+	}
+	if sel == nil || len(sel.Profiles) != 1 || sel.Profiles[0] != "work" {
+		t.Errorf("sel = %+v, want Profiles=[work]", sel)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

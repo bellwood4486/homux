@@ -58,7 +58,7 @@ func runInit(cmd *cobra.Command, flags *globalFlags, opts initOptions, interacti
 		return fmt.Errorf("resolve home directory: %w", err)
 	}
 	out := cmd.OutOrStdout()
-	prompter := ui.NewPrompter(cmd.InOrStdin(), out, home)
+	prompter := ui.NewPrompter(cmd.InOrStdin(), out, home, "", "")
 
 	repoPath, err := initRepoPath(prompter, out, flags.colorOut, flags.repo, interactive)
 	if err != nil {

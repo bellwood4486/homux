@@ -22,3 +22,4 @@
 | [0012](0012-backup-by-rename.md) | 退避は rename 一本とし、退避先は plan が決める（衝突時は停止） |
 | [0013](0013-goreleaser-distribution.md) | 配布は GoReleaser で行い、GitHub Releases にバイナリと provenance を出す |
 | [0014](0014-home-top-level-symlink-roots.md) | 走査起点に `$HOME` 直下の symlink を加え、検出漏れをトップレベルのディレクトリ削除だけに絞る |
+| [0015](0015-occupied-conflict-resolution-choices.md) | Occupied の対話に HOME 優先の取り込み（common / profile 専用）を選択肢として追加する |

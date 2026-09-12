@@ -64,7 +64,7 @@ func runApply(cmd *cobra.Command, flags *globalFlags, opts applyOptions, interac
 	// 「何をしたか」がログに残る。
 	ui.RenderPlan(out, flags.colorOut, ws.env.Home, ws.env.Repo, p.Actions)
 
-	confirm, err := confirmFunc(cmd, ws.env.Home, p.Actions, opts, interactive)
+	confirm, err := confirmFunc(cmd, ws, p.Actions, opts, interactive)
 	if err != nil {
 		return err
 	}
@@ -86,12 +86,12 @@ func runApply(cmd *cobra.Command, flags *globalFlags, opts applyOptions, interac
 // 非 TTY で確認が必要な場合は spec §11.4 に従いエラーで止める。確認が
 // 1 件も要らない plan は対話 UI を起動しないので、非 TTY でもそのまま実行
 // できる。これがないとパイプ越しの再実行が永久に収束しない。
-func confirmFunc(cmd *cobra.Command, home string, actions []plan.Action, opts applyOptions, interactive bool) (exec.Confirm, error) {
+func confirmFunc(cmd *cobra.Command, ws *workspace, actions []plan.Action, opts applyOptions, interactive bool) (exec.Confirm, error) {
 	if opts.yes {
 		return nil, nil
 	}
 	if interactive {
-		return ui.NewPrompter(cmd.InOrStdin(), cmd.OutOrStdout(), home).ConfirmAction, nil
+		return ui.NewPrompter(cmd.InOrStdin(), cmd.OutOrStdout(), ws.env.Home, ws.env.Repo, ws.profile).ConfirmAction, nil
 	}
 	if n := countConfirm(actions); n > 0 {
 		return nil, fmt.Errorf(

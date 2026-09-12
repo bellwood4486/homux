@@ -329,13 +329,13 @@ func TestApplyCmd_NonTTYWithoutYesSucceedsOnNoOpPlan(t *testing.T) {
 func TestApplyCmd_InteractiveYesAppliesConfirmedActions(t *testing.T) {
 	home, repo := applyFixture(t)
 
-	stdout, err := runApplyInteractive(t, repo, "y\ny\ny\n", applyOptions{})
+	stdout, err := runApplyInteractive(t, repo, "r\ny\ny\n", applyOptions{})
 	if err != nil {
 		t.Fatalf("runApply: %v", err)
 	}
 
-	if !strings.Contains(stdout, "Replace it? [y/N]: ") {
-		t.Errorf("stdout has no replace prompt:\n%s", stdout)
+	if !strings.Contains(stdout, "Choice [r/h/p/N]: ") {
+		t.Errorf("stdout has no occupied prompt:\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "Applied 4 changes.") {
 		t.Errorf("stdout:\n%s", stdout)
@@ -369,8 +369,11 @@ func TestApplyCmd_InteractiveNoIsNotPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second runApply: %v", err)
 	}
-	if n := strings.Count(second, "[y/N]: "); n != 3 {
-		t.Errorf("second run asked %d times, want 3:\n%s", n, second)
+	if n := strings.Count(second, "[y/N]: "); n != 2 {
+		t.Errorf("second run asked [y/N] %d times, want 2 (Relink + RemoveStaleSymlink):\n%s", n, second)
+	}
+	if !strings.Contains(second, "Choice [r/h/p/N]: ") {
+		t.Errorf("second run should still ask the occupied choice:\n%s", second)
 	}
 }
 
@@ -453,4 +456,78 @@ func TestApplyCmd_PartialApplyReportsWhatWasLeft(t *testing.T) {
 		t.Errorf("stdout has no re-run hint:\n%s", stdout)
 	}
 	assertNotExist(t, filepath.Join(home, ".zshrc"))
+}
+
+// ADR 0015: HOME 優先（共通）。HOME の実体が Selected の source（この
+// フィクスチャでは .claude/settings.json@@work）へ move され、repo の
+// 内容は上書きされる。
+func TestApplyCmd_InteractiveAdoptCommonMovesHomeFileIntoRepo(t *testing.T) {
+	home, repo := applyFixture(t)
+
+	stdout, err := runApplyInteractive(t, repo, "h\ny\ny\n", applyOptions{})
+	if err != nil {
+		t.Fatalf("runApply: %v", err)
+	}
+	if !strings.Contains(stdout, "Applied 4 changes.") {
+		t.Errorf("stdout:\n%s", stdout)
+	}
+
+	repoSource := filepath.Join(repo, ".claude/settings.json@@work")
+	assertSymlink(t, filepath.Join(home, ".claude/settings.json"), repoSource)
+	got, err := os.ReadFile(repoSource)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", repoSource, err)
+	}
+	if string(got) != "unmanaged\n" {
+		t.Errorf("repo source content = %q, want the adopted HOME content %q", got, "unmanaged\n")
+	}
+}
+
+// ADR 0015: HOME 優先（profile 専用）。profile 名は空 Enter でアクティブ
+// profile（work）を使う。
+func TestApplyCmd_InteractiveAdoptProfileCreatesProfileSpecificSource(t *testing.T) {
+	home, repo := applyFixture(t)
+
+	stdout, err := runApplyInteractive(t, repo, "p\n\ny\ny\n", applyOptions{})
+	if err != nil {
+		t.Fatalf("runApply: %v", err)
+	}
+	if !strings.Contains(stdout, "Applied 4 changes.") {
+		t.Errorf("stdout:\n%s", stdout)
+	}
+
+	repoSource := filepath.Join(repo, ".claude/settings.json@@work")
+	assertSymlink(t, filepath.Join(home, ".claude/settings.json"), repoSource)
+	got, err := os.ReadFile(repoSource)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", repoSource, err)
+	}
+	if string(got) != "unmanaged\n" {
+		t.Errorf("repo source content = %q, want the adopted HOME content %q", got, "unmanaged\n")
+	}
+}
+
+// ADR 0015: profile 名は対話中に変更できる。personal@@ という新しい
+// source が作られる。
+func TestApplyCmd_InteractiveAdoptProfileCanUseADifferentProfile(t *testing.T) {
+	home, repo := applyFixture(t)
+
+	stdout, err := runApplyInteractive(t, repo, "p\npersonal\ny\ny\n", applyOptions{})
+	if err != nil {
+		t.Fatalf("runApply: %v", err)
+	}
+	if !strings.Contains(stdout, "Applied 4 changes.") {
+		t.Errorf("stdout:\n%s", stdout)
+	}
+
+	repoSource := filepath.Join(repo, ".claude/settings.json@@personal")
+	assertSymlink(t, filepath.Join(home, ".claude/settings.json"), repoSource)
+	// 元の work 専用 source は変更されずに残る。
+	original, err := os.ReadFile(filepath.Join(repo, ".claude/settings.json@@work"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(original) != "{}\n" {
+		t.Errorf("original @@work source was modified: %q", original)
+	}
 }

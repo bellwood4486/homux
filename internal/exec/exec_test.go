@@ -244,8 +244,8 @@ func TestApplySkipsDeclinedActionAndContinues(t *testing.T) {
 		},
 		{Kind: plan.CreateSymlink, Target: accepted, LinkTo: source},
 	}
-	res := Apply(actions, func(a plan.Action) (bool, error) {
-		return false, nil
+	res := Apply(actions, func(a plan.Action) (Decision, error) {
+		return Decision{Resolution: ResolutionSkip}, nil
 	})
 
 	if res.Err != nil {
@@ -275,9 +275,9 @@ func TestApplyDoesNotAskForActionsThatNeedNoConfirmation(t *testing.T) {
 	asked := 0
 	res := Apply([]plan.Action{
 		{Kind: plan.CreateSymlink, Target: target, LinkTo: source},
-	}, func(a plan.Action) (bool, error) {
+	}, func(a plan.Action) (Decision, error) {
 		asked++
-		return false, nil
+		return Decision{Resolution: ResolutionSkip}, nil
 	})
 
 	if res.Err != nil {
@@ -325,8 +325,8 @@ func TestApplyStopsWhenConfirmFails(t *testing.T) {
 		{Kind: plan.RemoveStaleSymlink, Target: target, Confirm: true},
 		{Kind: plan.CreateSymlink, Target: pending, LinkTo: source},
 	}
-	res := Apply(actions, func(a plan.Action) (bool, error) {
-		return false, errors.New("no tty")
+	res := Apply(actions, func(a plan.Action) (Decision, error) {
+		return Decision{}, errors.New("no tty")
 	})
 
 	if res.Err == nil {

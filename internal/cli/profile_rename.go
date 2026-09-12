@@ -116,7 +116,7 @@ func runProfileRename(cmd *cobra.Command, flags *globalFlags, from, to string, i
 		return errors.New(
 			"confirmation is required, but this is not an interactive terminal: homux profile rename always asks for confirmation")
 	}
-	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home).Confirm("Apply?")
+	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home, "", "").Confirm("Apply?")
 	if err != nil {
 		return err
 	}
