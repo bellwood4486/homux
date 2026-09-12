@@ -162,23 +162,24 @@ Occupied（`ReplaceTarget`）だけは、確認の答えが単純な可否では
 type ConflictResolution int
 
 const (
-    ResolutionSkip ConflictResolution = iota // n（既定）
-    ResolutionKeepRepo                        // r：従来の退避 + symlink
-    ResolutionAdoptCommon                     // h：HOME 実体を Selected の source へ
-    ResolutionAdoptProfile                    // p：HOME 実体を target@@<profile> へ
+    ResolutionSkip     ConflictResolution = iota // n（既定）
+    ResolutionKeepRepo                            // r：従来の退避 + symlink
+    ResolutionAdopt                               // h または p。AdoptPath が取り込み先を決める
 )
 
 type Decision struct {
     Resolution ConflictResolution
-    Profile    string // ResolutionAdoptProfile のときだけ使う
+    AdoptPath  string // ResolutionAdopt のときの取り込み先 repo 絶対パス
 }
 
 type Confirm func(plan.Action) (Decision, error)
 ```
 
-`plan.Action` / `plan.ActionKind` はここでは分岐しない。`plan` は今まで通り Occupied を `ReplaceTarget` 1 種類だけに変換し、純粋なままである。「repo優先 / HOME優先(共通) / HOME優先(profile) / 何もしない」という対話結果への分岐は `exec` 内の enum + `switch` で行う（ADR 0015）。`plan` に profile 一覧や selector 構文の組み立てを持ち込まないためである。
+`plan.Action` / `plan.ActionKind` はここでは分岐しない。`plan` は今まで通り Occupied を `ReplaceTarget` 1 種類だけに変換し、純粋なままである。「repo優先 / HOME優先(取り込み) / 何もしない」という対話結果への分岐は `exec` 内の enum + `switch` で行う（ADR 0015）。`plan` に profile 一覧や selector 構文の組み立てを持ち込まないためである。
 
-`h`/`p` の実行（`internal/exec` の `adopt`）は `add`（spec §12.6）と同じ「repo へ move → 元の位置に symlink」を行う。取り込み先の repo パスは、`h` なら `Action.LinkTo` をそのまま使い、`p` なら `internal/selector` の逆変換ヘルパー（HOME 相対パス + profile 名 → `foo@@work` 形式の repo 相対パス）で組み立てる。対象が repo 外を指す symlink（`Action.Current == inspect.CurrentSymlink`）のときは `adopt` がエラーを返す。`ui` が `h`/`p` を選択肢に出さない設計だが、`exec` 単体でも不整合として弾く。
+`exec` は `Home` / `Repo` のパスを知らない（`env.Env` を持つのは `cli` 層だけ）。`h` と `p` は「どこへ move するか」が違うだけで実行内容は同じなので `ResolutionAdopt` 1 種類にまとめ、取り込み先の絶対パスの組み立ては `ui` の責務にする。`ui`（`Prompter`）は `home` に加えて `repo` も受け取り、`h` では `Action.LinkTo` をそのまま `AdoptPath` に使い、`p` では `internal/selector` の逆変換ヘルパー（HOME 相対パス + profile 名 → `foo@@work` 形式の repo 相対パス）で組み立てて `filepath.Join(repo, ...)` した絶対パスを渡す。
+
+`exec` の `adopt` は `AdoptPath` へ `add`（spec §12.6）と同じ「repo へ move → 元の位置に symlink」を行うだけである。対象が repo 外を指す symlink（`Action.Current == inspect.CurrentSymlink`）のときは `adopt` がエラーを返す。`ui` が `h`/`p` を選択肢に出さない設計だが、`exec` 単体でも不整合として弾く。
 
 Relink・RemoveStaleSymlink の確認は従来通り 2 値のみで、`Decision` は `ResolutionKeepRepo`/`ResolutionSkip` だけを使う。
 

@@ -18,7 +18,11 @@ Occupied の対話に、既存の `r`（repo 優先＝従来の退避）に加�
 
 repo 側に同名の source が既に存在する場合（`h`/`p` いずれも起こりうる）、退避を作らず黙って上書きする。元の内容の保全は git 履歴（commit 済みであれば `git diff` / `git checkout` で復元可能）に委ねる。homux は git wrapper を作らない方針（INV-03）であり、ここでも例外を作らない。
 
-型としては `exec.Confirm` の戻り値を `bool` から `Decision{ Resolution ConflictResolution; Profile string }` に拡張する。`ConflictResolution` は `ResolutionSkip` / `ResolutionKeepRepo` / `ResolutionAdoptCommon` / `ResolutionAdoptProfile` の enum とし、`exec` 内の `switch` で分岐する。`plan.Action` / `plan.ActionKind` は変更しない。Occupied は引き続き `plan` が純粋に `ReplaceTarget` 1 種類だけを生成し、「どう解決するか」という対話結果に依存する分岐は元から `exec.Confirm` の応答を見ていた場所（`ask` → `run`）にそのまま収める。
+型としては `exec.Confirm` の戻り値を `bool` から `Decision{ Resolution ConflictResolution; AdoptPath string }` に拡張する。`ConflictResolution` は `ResolutionSkip` / `ResolutionKeepRepo` / `ResolutionAdopt` の enum とする。`h` と `p` は `exec` から見れば「どこへ move するか」が違うだけで実行内容は同じであるため、`ResolutionAdopt` 1 種類で表し、取り込み先の絶対パスを `Decision.AdoptPath` に持たせる。
+
+`exec` は `Home` / `Repo` のパスを知らない（`env.Env` を持つのは `cli` 層だけ）。したがって `target@@<profile>` の repo パスを組み立てるのは `ui`（`Prompter` は既に `home` を持ち、`repo` も受け取るようにする）の責務とし、`exec` は `Decision.AdoptPath` に入っている絶対パスへ move するだけにする。`h` のときは `ui` が `Action.LinkTo` をそのまま `AdoptPath` に使い、`p` のときは `internal/selector` の逆変換ヘルパー（HOME 相対パス + profile 名 → `foo@@work` 形式の repo 相対パスの組み立て）を `ui` が呼ぶ。
+
+`plan.Action` / `plan.ActionKind` は変更しない。Occupied は引き続き `plan` が純粋に `ReplaceTarget` 1 種類だけを生成し、「どう解決するか」という対話結果に依存する分岐は元から `exec.Confirm` の応答を見ていた場所（`ask` → `run`）にそのまま収める。
 
 `apply --yes`（非対話実行）は引き続き repo 優先のみを行う。`h`/`p` を選ぶための新しいフラグ（例: `--on-conflict`）は追加しない。
 
