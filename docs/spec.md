@@ -618,7 +618,7 @@ Existing file detected:
   desired:
     ~/dotfiles/.claude/settings.json@@work
 
-  backup (if keeping repo version):
+  backup:
     ~/.claude/settings.json.homux-bak.20260905-153000
 
 How do you want to resolve this?
