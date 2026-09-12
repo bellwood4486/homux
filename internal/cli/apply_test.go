@@ -329,13 +329,13 @@ func TestApplyCmd_NonTTYWithoutYesSucceedsOnNoOpPlan(t *testing.T) {
 func TestApplyCmd_InteractiveYesAppliesConfirmedActions(t *testing.T) {
 	home, repo := applyFixture(t)
 
-	stdout, err := runApplyInteractive(t, repo, "y\ny\ny\n", applyOptions{})
+	stdout, err := runApplyInteractive(t, repo, "r\ny\ny\n", applyOptions{})
 	if err != nil {
 		t.Fatalf("runApply: %v", err)
 	}
 
-	if !strings.Contains(stdout, "Replace it? [y/N]: ") {
-		t.Errorf("stdout has no replace prompt:\n%s", stdout)
+	if !strings.Contains(stdout, "Choice [r/h/p/N]: ") {
+		t.Errorf("stdout has no occupied prompt:\n%s", stdout)
 	}
 	if !strings.Contains(stdout, "Applied 4 changes.") {
 		t.Errorf("stdout:\n%s", stdout)
@@ -369,8 +369,11 @@ func TestApplyCmd_InteractiveNoIsNotPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second runApply: %v", err)
 	}
-	if n := strings.Count(second, "[y/N]: "); n != 3 {
-		t.Errorf("second run asked %d times, want 3:\n%s", n, second)
+	if n := strings.Count(second, "[y/N]: "); n != 2 {
+		t.Errorf("second run asked [y/N] %d times, want 2 (Relink + RemoveStaleSymlink):\n%s", n, second)
+	}
+	if !strings.Contains(second, "Choice [r/h/p/N]: ") {
+		t.Errorf("second run should still ask the occupied choice:\n%s", second)
 	}
 }
 

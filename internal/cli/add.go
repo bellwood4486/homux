@@ -78,7 +78,7 @@ func runAdd(cmd *cobra.Command, flags *globalFlags, args []string, opts addOptio
 		return errors.New(
 			"confirmation is required, but this is not an interactive terminal: homux add always asks for confirmation")
 	}
-	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home).Confirm("Add these files?")
+	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home, "", "").Confirm("Add these files?")
 	if err != nil {
 		return err
 	}

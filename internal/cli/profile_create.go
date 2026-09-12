@@ -105,7 +105,7 @@ func runProfileCreate(cmd *cobra.Command, flags *globalFlags, name string, sel f
 	out := cmd.OutOrStdout()
 	ui.RenderMigrationPlan(out, flags.colorOut, plan)
 
-	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home).Confirm("Apply this migration?")
+	ok, err := ui.NewPrompter(cmd.InOrStdin(), out, ws.env.Home, "", "").Confirm("Apply this migration?")
 	if err != nil {
 		return err
 	}
