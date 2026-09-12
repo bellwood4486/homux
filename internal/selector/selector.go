@@ -55,6 +55,16 @@ func ParseName(name string) (base string, sel *Selector, err error) {
 	return base, sel, nil
 }
 
+// BuildName は base 名と profile 名から "@@" suffix 付きファイル名を組み立てる
+// （ParseName の逆）。apply の Occupied で HOME 側の実体を profile 専用
+// source として取り込む際に使う（spec §12.4.1、ADR 0015）。
+//
+// 構文検証は行わない。呼び出し側（ui）は既に .homux.toml で有効と分かって
+// いる profile 名、またはユーザーが対話で入力した文字列をそのまま渡す。
+func BuildName(base, profile string) string {
+	return base + Delimiter + profile
+}
+
 // Parse は selector 文字列（"@@" より後ろの部分）をパースする（spec §6.5）。
 //
 // ここで検証するのは構文だけである。profile が .homux.toml に定義済みかどうかは
