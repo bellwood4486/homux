@@ -9,7 +9,7 @@ import (
 
 func TestPrompter_AskLineUsesDefaultOnEmptyInput(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("\n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("\n"), &out, testHome, testRepo, "")
 
 	got, err := p.AskLine("Repository path", testHome+"/dotfiles")
 	if err != nil {
@@ -25,7 +25,7 @@ func TestPrompter_AskLineUsesDefaultOnEmptyInput(t *testing.T) {
 
 func TestPrompter_AskLineTrimsAnswer(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("  /srv/dotfiles  \n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("  /srv/dotfiles  \n"), &out, testHome, testRepo, "")
 
 	got, err := p.AskLine("Repository path", testHome+"/dotfiles")
 	if err != nil {
@@ -38,7 +38,7 @@ func TestPrompter_AskLineTrimsAnswer(t *testing.T) {
 
 func TestPrompter_AskLineNoInput(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader(""), &out, testHome)
+	p := NewPrompter(strings.NewReader(""), &out, testHome, testRepo, "")
 
 	if _, err := p.AskLine("Repository path", ""); err == nil {
 		t.Fatal("AskLine err = nil, want error")
@@ -47,7 +47,7 @@ func TestPrompter_AskLineNoInput(t *testing.T) {
 
 func TestPrompter_ConfirmDefaultsToNo(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("\n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("\n"), &out, testHome, testRepo, "")
 
 	ok, err := p.Confirm("Initialize it as a new homux repository?")
 	if err != nil {
@@ -64,7 +64,7 @@ func TestPrompter_ConfirmDefaultsToNo(t *testing.T) {
 // spec §12.1 の選択肢の並び。(none) は最後に置き、profile なしを空文字列で返す。
 func TestPrompter_SelectProfile(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("2\n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("2\n"), &out, testHome, testRepo, "")
 
 	got, err := p.SelectProfile([]string{"work", "personal"})
 	if err != nil {
@@ -88,7 +88,7 @@ func TestPrompter_SelectProfile(t *testing.T) {
 
 func TestPrompter_SelectProfileNone(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("3\n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("3\n"), &out, testHome, testRepo, "")
 
 	got, err := p.SelectProfile([]string{"work", "personal"})
 	if err != nil {
@@ -101,7 +101,7 @@ func TestPrompter_SelectProfileNone(t *testing.T) {
 
 func TestPrompter_SelectProfileRejectsOutOfRange(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader("9\nx\n1\n"), &out, testHome)
+	p := NewPrompter(strings.NewReader("9\nx\n1\n"), &out, testHome, testRepo, "")
 
 	got, err := p.SelectProfile([]string{"work", "personal"})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestPrompter_SelectProfileRejectsOutOfRange(t *testing.T) {
 
 func TestPrompter_SelectProfileNoInput(t *testing.T) {
 	var out bytes.Buffer
-	p := NewPrompter(strings.NewReader(""), &out, testHome)
+	p := NewPrompter(strings.NewReader(""), &out, testHome, testRepo, "")
 
 	_, err := p.SelectProfile([]string{"work"})
 	if !errors.Is(err, errNoInput) {

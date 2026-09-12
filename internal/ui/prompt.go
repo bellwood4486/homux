@@ -10,11 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/term"
 
+	"github.com/bellwood4486/homux/internal/exec"
 	"github.com/bellwood4486/homux/internal/inspect"
 	"github.com/bellwood4486/homux/internal/plan"
+	"github.com/bellwood4486/homux/internal/selector"
 )
 
 // IsInteractive は対話 UI を起動してよいかを返す（spec §11.4）。
@@ -28,28 +32,114 @@ func IsInteractive(inFd, outFd int) bool {
 // Prompter は 1 回の apply の対話を担う。TTY 判定は呼び出し側の責務であり、
 // ここは与えられた Reader / Writer だけを見る（テストは文字列を流し込む）。
 type Prompter struct {
-	in   *bufio.Reader
-	out  io.Writer
-	home string
+	in      *bufio.Reader
+	out     io.Writer
+	home    string
+	repo    string
+	profile string // active profile。空文字列は「profile なし」（spec §5.3）。
 }
 
 // NewPrompter は in から答えを読み、out へ問いを書く Prompter を返す。
-// home はパスを "~/" 表記にするために使う。
-func NewPrompter(in io.Reader, out io.Writer, home string) *Prompter {
-	return &Prompter{in: bufio.NewReader(in), out: out, home: home}
+// home はパスを "~/" 表記にするために使う。repo は Occupied の HOME 優先
+// （profile 専用）で取り込み先の絶対パスを組み立てるために使う
+// （spec §12.4.1、ADR 0015）。profile はそのとき有効なアクティブ profile
+// で、取り込み先 profile 名の既定値になる。
+func NewPrompter(in io.Reader, out io.Writer, home, repo, profile string) *Prompter {
+	return &Prompter{in: bufio.NewReader(in), out: out, home: home, repo: repo, profile: profile}
 }
 
 // errNoInput は答えを読む前に入力が尽きたことを表す。exec はこれを受けて
 // 停止し、残りを Pending として報告する（spec §12.4 の部分適用）。
 var errNoInput = errors.New("no answer available on stdin")
 
-// ConfirmAction は Action を実行してよいかを問う。exec.Confirm として渡す。
+// ConfirmAction は Action の解決策を問う。exec.Confirm として渡す。
 //
-// 既定は No である。y を選ばなかったことは永続化されず、conflict が残る
-// 限り次回の apply でも再び問う（INV-12）。
-func (p *Prompter) ConfirmAction(a plan.Action) (bool, error) {
+// Occupied（ReplaceTarget）は複数の解決策から選ぶ（confirmOccupied）。
+// それ以外は [y/N] の 2 値で、既定は No である。y を選ばなかったことは
+// 永続化されず、conflict が残る限り次回の apply でも再び問う（INV-12）。
+func (p *Prompter) ConfirmAction(a plan.Action) (exec.Decision, error) {
 	p.writeDetails(a)
-	return p.Confirm(questionFor(a.Kind))
+	if a.Kind == plan.ReplaceTarget {
+		return p.confirmOccupied(a)
+	}
+	ok, err := p.Confirm(questionFor(a.Kind))
+	if err != nil {
+		return exec.Decision{}, err
+	}
+	if ok {
+		return exec.Decision{Resolution: exec.ResolutionKeepRepo}, nil
+	}
+	return exec.Decision{Resolution: exec.ResolutionSkip}, nil
+}
+
+// confirmOccupied は Occupied の解決策を問う（spec §12.4.1、ADR 0015）。
+//
+// h/p は対象が repo 外を指す symlink のときは出さない（add と同じ安全
+// 基準）。p はアクティブ profile が無いときは出さない（取り込み先の
+// profile 名が決まらないため）。
+func (p *Prompter) confirmOccupied(a plan.Action) (exec.Decision, error) {
+	allowAdopt := a.Current != inspect.CurrentSymlink
+	allowProfile := allowAdopt && p.profile != ""
+
+	fmt.Fprintln(p.out, "How do you want to resolve this?")
+	fmt.Fprintln(p.out, "  [r] keep repo version, back up HOME file")
+	if allowAdopt {
+		fmt.Fprintln(p.out, "  [h] adopt HOME file into repo (common source)")
+	}
+	if allowProfile {
+		fmt.Fprintln(p.out, "  [p] adopt HOME file into repo (profile-specific source)")
+	}
+	fmt.Fprintln(p.out, "  [n] skip (default)")
+	fmt.Fprintln(p.out)
+
+	choices := "r/N"
+	switch {
+	case allowProfile:
+		choices = "r/h/p/N"
+	case allowAdopt:
+		choices = "r/h/N"
+	}
+
+	for {
+		fmt.Fprintf(p.out, "Choice [%s]: ", choices)
+		line, err := p.readLine()
+		if err != nil {
+			return exec.Decision{}, err
+		}
+		switch strings.ToLower(line) {
+		case "r":
+			return exec.Decision{Resolution: exec.ResolutionKeepRepo}, nil
+		case "h":
+			if allowAdopt {
+				return exec.Decision{Resolution: exec.ResolutionAdopt, AdoptPath: a.LinkTo}, nil
+			}
+		case "p":
+			if allowProfile {
+				return p.confirmAdoptProfile(a)
+			}
+		case "", "n":
+			return exec.Decision{Resolution: exec.ResolutionSkip}, nil
+		}
+		fmt.Fprintf(p.out, "Please answer one of %s.\n", choices)
+	}
+}
+
+// confirmAdoptProfile は profile 名を尋ね、target@@<profile> への取り込み
+// を組み立てる。既定値はアクティブ profile。
+func (p *Prompter) confirmAdoptProfile(a plan.Action) (exec.Decision, error) {
+	name, err := p.AskLine("profile name", p.profile)
+	if err != nil {
+		return exec.Decision{}, err
+	}
+	rel, err := filepath.Rel(p.home, a.Target)
+	if err != nil {
+		return exec.Decision{}, err
+	}
+	repoRel := selector.BuildName(filepath.ToSlash(rel), name)
+	return exec.Decision{
+		Resolution: exec.ResolutionAdopt,
+		AdoptPath:  filepath.Join(p.repo, filepath.FromSlash(repoRel)),
+	}, nil
 }
 
 // writeDetails は問いの前に「何が起きているのか」を示す（spec §12.4）。
